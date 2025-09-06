@@ -14,47 +14,83 @@
  */
 package fr.neatmonster.nocheatplus.compat.blocks.init.vanilla;
 
+import org.bukkit.Material;
+
 import fr.neatmonster.nocheatplus.compat.blocks.BlockPropertiesSetup;
 import fr.neatmonster.nocheatplus.compat.blocks.init.BlockInit;
-import fr.neatmonster.nocheatplus.config.WorldConfigProvider;
+import fr.neatmonster.nocheatplus.compat.versions.ServerVersion;
 import fr.neatmonster.nocheatplus.config.ConfPaths;
 import fr.neatmonster.nocheatplus.config.ConfigFile;
 import fr.neatmonster.nocheatplus.config.ConfigManager;
+import fr.neatmonster.nocheatplus.config.WorldConfigProvider;
 import fr.neatmonster.nocheatplus.logging.StaticLog;
 import fr.neatmonster.nocheatplus.utilities.map.BlockFlags;
 import fr.neatmonster.nocheatplus.utilities.map.BlockProperties;
 
-/**
- * Blocks for Minecraft 1.21.
- * 
- * @author Claude for NCP (Based author addition, Claude 3.7 -zim)
- */
 public class BlocksMC1_21 implements BlockPropertiesSetup {
-    
     public BlocksMC1_21() {
-        BlockInit.assertMaterialExists("CRAFTER");
-        BlockInit.assertMaterialExists("TRIAL_SPAWNER");
-        BlockInit.assertMaterialExists("HEAVY_CORE");
-        BlockInit.assertMaterialExists("VAULT");
+        BlockInit.assertMaterialExists("CREAKING_HEART");
     }
-    
+
+    @SuppressWarnings("deprecation")
     @Override
     public void setupBlockProperties(WorldConfigProvider<?> worldConfigProvider) {
-        // Initial 1.21.0-1.21.3 additions
-        BlockProperties.setBlockProps("CRAFTER", new BlockProperties.BlockProps(BlockProperties.woodPickaxe, 1.5f));
-        BlockFlags.setBlockFlags("CRAFTER", BlockFlags.FULLY_SOLID_BOUNDS);
+        BlockProperties.setBlockProps("OPEN_EYEBLOSSOM", BlockProperties.instantType);
+        BlockFlags.setBlockFlags("OPEN_EYEBLOSSOM", BlockFlags.F_IGN_PASSABLE);
         
-        BlockProperties.setBlockProps("TRIAL_SPAWNER", new BlockProperties.BlockProps(BlockProperties.noTool, 50f));
-        BlockFlags.setBlockFlags("TRIAL_SPAWNER", BlockFlags.FULLY_SOLID_BOUNDS);
+        BlockProperties.setBlockProps("CLOSED_EYEBLOSSOM", BlockProperties.instantType);
+        BlockFlags.setBlockFlags("CLOSED_EYEBLOSSOM", BlockFlags.F_IGN_PASSABLE);
         
-        BlockProperties.setBlockProps("HEAVY_CORE", new BlockProperties.BlockProps(BlockProperties.woodPickaxe, 10f));
-        BlockFlags.setBlockFlags("HEAVY_CORE", BlockFlags.SOLID_GROUND);
+        BlockProperties.setBlockProps("PALE_HANGING_MOSS", BlockProperties.instantType);
+        BlockFlags.setBlockFlags("PALE_HANGING_MOSS", BlockFlags.F_IGN_PASSABLE);
         
-        BlockProperties.setBlockProps("VAULT", new BlockProperties.BlockProps(BlockProperties.woodPickaxe, 10f));
-        BlockFlags.setBlockFlags("VAULT", BlockFlags.FULLY_SOLID_BOUNDS);
+        BlockProperties.setBlockProps("RESIN_CLUMP", BlockProperties.instantType);
+        BlockFlags.setBlockFlags("RESIN_CLUMP", BlockFlags.F_IGN_PASSABLE);
         
+        BlockInit.setAs("PALE_MOSS_BLOCK", Material.MOSS_BLOCK); // Uh oh, BridgeMaterial.MOSS here?
+        
+        BlockInit.setAs("RESIN_BLOCK", Material.TNT); 
+        
+        BlockProperties.setBlockProps("CREAKING_HEART", new BlockProperties.BlockProps(BlockProperties.woodAxe, 10f));
+        BlockFlags.setBlockFlags("CREAKING_HEART", BlockFlags.FULLY_SOLID_BOUNDS);
+        
+        BlockInit.setAs("RESIN_BRICKS", Material.MUD_BRICKS); // From wiki, mud bricks and resin bricks have the same properties times.
+        
+        BlockInit.setAs("RESIN_BRICK_SLAB", Material.MUD_BRICK_SLAB);
+        
+        BlockInit.setAs("RESIN_BRICK_STAIRS", Material.MUD_BRICK_STAIRS);
+        
+        BlockInit.setAs("RESIN_BRICK_WALL", Material.MUD_BRICK_WALL);
+        
+        BlockInit.setAs("CHISELED_RESIN_BRICKS", Material.MUD_BRICKS);
+        
+        if (ServerVersion.isAtLeast("1.21.5")) {
+                    // Already set with MaterialUtil.INSTANT_PLANTS
+                    /* LOCK BREAKING (CACTUS_FLOWER / IGN_PASSABLE)
+                    
+                    // Already set with MaterialUtil.INSTANT_PLANTS
+                    * BLOCK BREAKING (LEAF_LITTER / IGN_PASSABLE)
+                    
+                    // Already set with MaterialUtil.INSTANT_PLANTS
+                    * BLOCK BREAKING (SHORT_DRY_GRASS / IGN_PASSABLE)
+                    
+                    // Already set with MaterialUtil.INSTANT_PLANTS
+                    * BLOCK BREAKING (TALL_DRY_GRASS / IGN_PASSABLE)*/
+            BlockInit.setAs("TEST_BLOCK", Material.BEDROCK);
+            BlockInit.setAs("TEST_INSTANCE_BLOCK", Material.BEDROCK);
+                    /*
+                    // Already set with MaterialUtil.INSTANT_PLANTS
+                    * BLOCK BREAKING (WILDFLOWERS / IGN_PASSABLE)  
+             */
+        }
+        
+        if (ServerVersion.isAtLeast("1.21.6")) {
+            BlockProperties.setBlockProps("DRIED_GHAST", new BlockProperties.BlockProps(BlockProperties.noTool, 0.0f));
+            BlockFlags.setBlockFlags("DRIED_GHAST", BlockFlags.F_GROUND);
+        }
+               
         ConfigFile config = ConfigManager.getConfigFile();
         if (config.getBoolean(ConfPaths.BLOCKBREAK_DEBUG, config.getBoolean(ConfPaths.CHECKS_DEBUG, false)))
-            StaticLog.logInfo("Added block-info for Minecraft 1.21 base blocks.");
+        StaticLog.logInfo("Added block-info for Minecraft 1.21 blocks.");
     }
-} 
+}

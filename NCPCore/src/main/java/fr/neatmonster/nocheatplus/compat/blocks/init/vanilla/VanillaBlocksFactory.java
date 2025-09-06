@@ -47,9 +47,12 @@ public class VanillaBlocksFactory {
             setups.add(new BlocksMC1_19());
             setups.add(new BlocksMC1_20());
             setups.add(new BlocksMC1_21());
+<<<<<<< HEAD
             setups.add(new BlocksMC1_21_4());
             setups.add(new BlocksMC1_21_5());
             setups.add(new BlocksMC1_21_6());
+=======
+>>>>>>> upstream/master
         }
         catch(Throwable t){}
         for (final BlockPropertiesSetup setup : setups){
