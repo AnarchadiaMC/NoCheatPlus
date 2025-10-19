@@ -25,7 +25,7 @@ import fr.neatmonster.nocheatplus.checks.CheckType;
 import fr.neatmonster.nocheatplus.checks.moving.location.tracking.LocationTrace.ITraceEntry;
 import fr.neatmonster.nocheatplus.compat.MCAccess;
 import fr.neatmonster.nocheatplus.utilities.collision.CollisionUtil;
-import fr.neatmonster.nocheatplus.utilities.math.TrigUtil;
+import fr.neatmonster.nocheatplus.utilities.location.TrigUtil;
 
 /**
  * The Direction check will find out if a player tried to interact with something that's not in their field of view.
@@ -94,6 +94,7 @@ public class Direction extends Check {
             // Execute whatever actions are associated with this check and the violation level and find out if we should
             // cancel the event.
             cancel = executeActions(player, data.directionVL, distance, cc.directionActions).willCancel();
+            data.lookFight = 0;
 
             if (cancel) {
                 // Deal an attack penalty time.
@@ -102,6 +103,7 @@ public class Direction extends Check {
         } else {
             // Reward the player by lowering their violation level.
             data.directionVL *= 0.8D;
+            data.lookFight = -1;
         }
 
         return cancel;
@@ -189,12 +191,14 @@ public class Direction extends Check {
                     final double distance = blockEyes.crossProduct(context.direction).length() / context.lengthDirection;
                     context.minViolation = Math.min(context.minViolation, distance);
                     cancel = true;
+                    data.lookFight = 0;
                 }
                 context.minResult = Math.min(context.minResult, off);
             }
         } 
         else if (cc.directionFailAll) {
             context.minResult = 0.0;
+            data.lookFight = -1;
         }
 
         return cancel;
@@ -224,6 +228,7 @@ public class Direction extends Check {
             // Execute whatever actions are associated with this check and the violation level and find out if we should
             // cancel the event.
             cancel = executeActions(player, data.directionVL, off, cc.directionActions).willCancel();
+            data.lookFight = 0;
 
             if (cancel) {
                 // Deal an attack penalty time.
@@ -233,6 +238,7 @@ public class Direction extends Check {
         else {
             // Reward the player by lowering their violation level.
             data.directionVL *= 0.8D;
+            data.lookFight = -1;
         }
         return cancel;
     }

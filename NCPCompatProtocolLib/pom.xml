@@ -15,15 +15,18 @@
     <name>NCPCompatProtocolLib</name>
     <description>
         Features using the plugin ProtocolLib:
-        https://dev.bukkit.org/bukkit-plugins/protocollib/
+        https://www.spigotmc.org/resources/protocollib.1997/
     </description>
 
+<<<<<<< HEAD
 
+=======
+>>>>>>> parent of e3e574683 (Merge remote-tracking branch 'upstream/master')
     <dependencies>
         <dependency>
             <groupId>org.spigotmc</groupId>
             <artifactId>spigot-api</artifactId>
-            <version>1.21.8-R0.1-SNAPSHOT</version>
+            <version>1.19.4-R0.1-SNAPSHOT</version>
             <scope>provided</scope>
         </dependency>
         <dependency>

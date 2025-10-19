@@ -17,15 +17,15 @@ package fr.neatmonster.nocheatplus.test;
 import org.bukkit.Material;
 import org.junit.Test;
 
-import fr.neatmonster.nocheatplus.compat.bukkit.BridgeMaterial;
+import fr.neatmonster.nocheatplus.compat.BridgeMaterial;
 import fr.neatmonster.nocheatplus.logging.StaticLog;
 import fr.neatmonster.nocheatplus.utilities.build.BuildParameters;
-import fr.neatmonster.nocheatplus.utilities.collision.tracing.ray.PassableRayTracing;
+import fr.neatmonster.nocheatplus.utilities.collision.PassableRayTracing;
+import fr.neatmonster.nocheatplus.utilities.map.BlockProperties;
 import fr.neatmonster.nocheatplus.utilities.map.BlockFlags;
 import fr.neatmonster.nocheatplus.utilities.map.FakeBlockCache;
-import fr.neatmonster.nocheatplus.MockServerBase;
 
-public class TestPassableRayTracing extends MockServerBase {
+public class TestPassableRayTracing {
     
     // TODO: Which tests to run on ICollidePassable with PassableAxisRayTracing as well...
 
@@ -40,7 +40,6 @@ public class TestPassableRayTracing extends MockServerBase {
         StaticLog.setUseLogManager(false);
         BlockTests.initBlockProperties();
         StaticLog.setUseLogManager(true);
-        BlockFlags.setBlockFlags(Material.STONE, BlockFlags.FULLY_SOLID_BOUNDS);
     }
 
     @Test

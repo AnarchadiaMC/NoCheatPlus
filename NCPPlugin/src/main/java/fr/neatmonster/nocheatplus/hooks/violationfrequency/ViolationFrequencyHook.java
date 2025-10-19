@@ -30,18 +30,19 @@ import fr.neatmonster.nocheatplus.utilities.StringUtil;
  * @author xaw3ep
  *
  */
+
 public class ViolationFrequencyHook implements NCPHook, IFirst {
     private ViolationFrequencyConfig config;
     private Integer hookId = null;
     
-    public ViolationFrequencyHook() {}
+    public ViolationFrequencyHook() {
+    }
     
     public void setConfig(ViolationFrequencyConfig config) {
         this.config = config;
         if (config == null || !config.active) {
             unregister();
-        } 
-        else {
+        } else {
             register();
         }
     }
@@ -65,23 +66,19 @@ public class ViolationFrequencyHook implements NCPHook, IFirst {
 
     @Override
     public String getHookVersion() {
-        return "1.1";
+        return "1.0";
     }
 
     @Override
     public boolean onCheckFailure(final CheckType checkType, final Player player, final IViolationInfo info) {
         final ViolationFrequencyConfig config = this.config;
         final StringBuilder builder = new StringBuilder(300);
-        if (info.getTotalVl() > config.maxThresholdVL) {
-            // Beyond max threshold; hook is not needed.
-            return false;
-        }
+        if (info.getTotalVl() > config.maxtotalvls) return false;
         final IPlayerData pData = DataManager.getPlayerData(player);
         if (pData != null) {
             final MovingData data = pData.getGenericInstance(MovingData.class);
-            if (info.getAddedVl() > config.noAdditionVL) {
-                // Current violation is higher than the custom threshold.
-                // No need to increase the VL, return.
+
+            if (info.getAddedVl() > config.minaddedvls) {
                 if (config.debug) {
                     builder.append("SurvivalFly: ");
                     builder.append("VL=" + StringUtil.fdec1.format(info.getTotalVl()));
@@ -91,25 +88,18 @@ public class ViolationFrequencyHook implements NCPHook, IFirst {
                 return true;
             }
 
-            // Violation is lower than noAdditionVL
-            final int lastViolatedMoveCount = data.getPlayerMoveCount() - data.sfVLMoveCount;
-            if (lastViolatedMoveCount <= config.lastViolatedMoveCount) {
-                // A too small violation (lower than noAdditionVL) has recently happened after another, do increase the violation.
-                data.survivalFlyVL += config.amountToAdd;
+            final int lastviolationmove = data.getPlayerMoveCount() - data.sfVLMoveCount;
+            if (lastviolationmove <= config.movecount) {
+                data.survivalFlyVL += config.morevls;
                 if (config.debug) {
                     builder.append("SurvivalFly: ");
                     builder.append("VL=" + StringUtil.fdec1.format(info.getTotalVl()));
                     builder.append("(+" + StringUtil.fdec1.format(info.getAddedVl()) + ") -> ");
-                    builder.append("VL=" + StringUtil.fdec1.format(info.getTotalVl() + config.amountToAdd));
-                    builder.append("(+" + StringUtil.fdec1.format(info.getAddedVl() + config.amountToAdd) + ")");
+                    builder.append("VL=" + StringUtil.fdec1.format(info.getTotalVl() + config.morevls));
+                    builder.append("(+" + StringUtil.fdec1.format(info.getAddedVl() + config.morevls) + ")");
                     log(builder.toString(), player);
                 }
-                if (info.getTotalVl() + config.amountToAdd <= config.maxThresholdVL) {
-                    return true; 
-                }
-                else {
-                    return false;                
-                }
+                if (info.getTotalVl() + config.morevls <= config.maxtotalvls) return true; else return false;                
             }
             
             if (config.debug) {
@@ -118,10 +108,8 @@ public class ViolationFrequencyHook implements NCPHook, IFirst {
                 builder.append("(+" + StringUtil.fdec1.format(info.getAddedVl()) + ")");
                 log(builder.toString(), player);
             }
-            // Move count from last violated move is too high
             return true;
         }
-        // Player data is null.
         return false;
     }
     

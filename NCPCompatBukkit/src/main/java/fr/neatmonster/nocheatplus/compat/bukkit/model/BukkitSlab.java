@@ -25,7 +25,8 @@ import fr.neatmonster.nocheatplus.utilities.map.BlockCache;
 public class BukkitSlab implements BukkitShapeModel {
 
     @Override
-    public double[] getShape(final BlockCache blockCache, final World world, final int x, final int y, final int z) {
+    public double[] getShape(final BlockCache blockCache, 
+            final World world, final int x, final int y, final int z) {
         final Block block = world.getBlockAt(x, y, z);
         final BlockState state = block.getState();
         final BlockData blockData = state.getBlockData();
@@ -47,7 +48,9 @@ public class BukkitSlab implements BukkitShapeModel {
     }
 
     @Override
-    public int getFakeData(final BlockCache blockCache, final World world, final int x, final int y, final int z) {
+    public int getFakeData(final BlockCache blockCache, 
+            final World world, final int x, final int y, final int z) {
         return 0;
     }
+
 }

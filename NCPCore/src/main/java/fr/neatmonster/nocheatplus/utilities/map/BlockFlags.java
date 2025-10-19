@@ -16,18 +16,33 @@ package fr.neatmonster.nocheatplus.utilities.map;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.InputMismatchException;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
+import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.World;
+import org.bukkit.block.Block;
+import org.bukkit.configuration.ConfigurationSection;
 
+import fr.neatmonster.nocheatplus.compat.blocks.BlockPropertiesSetup;
+import fr.neatmonster.nocheatplus.compat.blocks.init.BlockInit;
+import fr.neatmonster.nocheatplus.config.RawConfigFile;
+import fr.neatmonster.nocheatplus.config.WorldConfigProvider;
+import fr.neatmonster.nocheatplus.logging.LogManager;
 import fr.neatmonster.nocheatplus.logging.StaticLog;
-import fr.neatmonster.nocheatplus.utilities.map.BlockCache.IBlockCacheNode;
+import fr.neatmonster.nocheatplus.logging.Streams;
+import fr.neatmonster.nocheatplus.utilities.StringUtil;
+import fr.neatmonster.nocheatplus.utilities.location.PlayerLocation;
 
 /**
  * Flags and utilities for block-flags.
@@ -131,6 +146,13 @@ public class BlockFlags {
     public static final long F_HEIGHT_8SIM_DEC              = f_flag();
 
     /**
+     * The height is assumed to increase with data value up to 0x7, repeating up to 0x15.<br>
+     * However the hit-box for collision checks  will be set to 0.5 height or 1.0 height only,<br>
+     * as with the 1.4.x snow levels.
+     */
+    public static final long F_HEIGHT_8SIM_INC              = f_flag();
+
+    /**
      * The height increases with data value (8 heights).<br>
      * This is for MC 1.5 snow levels.
      */
@@ -151,7 +173,7 @@ public class BlockFlags {
     /** Thin fences: iron bars and glass panes. */
     public static final long F_THIN_FENCE                   = f_flag();
 
-    /** Meta-flag to indicate that the maxXZ edges of an AABB should mean a collision, can be passed to collidesBlock. */
+    /** Meta-flag to indicate that the (max.-) edges should mean a collision, can be passed to collidesBlock. */
     public static final long F_COLLIDE_EDGES                = f_flag();
 
     /** Thick fences: actual fences. */
@@ -178,6 +200,11 @@ public class BlockFlags {
      * in order of SNEW.
      */
     public static final long F_ATTACHED_LOW2_SNEW           = f_flag();
+
+    /**
+     * The hacky way to force sfNoLowJump when the block at from has this flag.
+     */
+    public static final long F_ALLOW_LOWJUMP                = f_flag();
 
     /** One eighth block height (0.125). */
     public static final long F_HEIGHT8_1                    = f_flag();
@@ -283,14 +310,20 @@ public class BlockFlags {
      */
     public static final long F_VARIABLE_REDSTONE            = f_flag();
 
+    /** Height 15/16 (0.9375 = 1 - 0.0625). */
+    public static final long F_HEIGHT16_15                  = f_flag();
+
     /** Like bubble column. */
-    public static final long F_BUBBLE_COLUMN                = f_flag();
+    public static final long F_BUBBLECOLUMN                 = f_flag();
+
+    /* Indicator flag. */
+    public static final long F_ANVIL                        = f_flag();
     
     /** Flag used to workaround bugged block bounds in older servers for thin fences. */
     public static final long F_FAKEBOUNDS                   = f_flag();
     
     /** Like powder snow: climbable and ground with leather shoes on. */
-    public static final long F_POWDER_SNOW = f_flag();
+    public static final long F_POWDERSNOW                   = f_flag();
 
     /** Explicitly set full bounds. */
     public static final long FULL_BOUNDS                    = F_XZ100 | F_HEIGHT100;
@@ -319,7 +352,8 @@ public class BlockFlags {
                         nameFlagMap.put(name, value);
                         nameFlagMap.put(name.substring(2), value);
                     } 
-                    catch (IllegalArgumentException | IllegalAccessException e) {}
+                    catch (IllegalArgumentException e) {} 
+                    catch (IllegalAccessException e) {}
                 }
             }
         }
@@ -448,20 +482,20 @@ public class BlockFlags {
     /**
      * Sets the block flags.
      *
-     * @param material
-     *            the material
+     * @param blockType
+     *            the block type
      * @param flags
      *            the flags
      */
-    public static final void setBlockFlags(final Material material, final long flags) {
+    public static final void setBlockFlags(final Material blockType, final long flags) {
         try {
-            if (!material.isBlock()) {
+            if (!blockType.isBlock()) {
                 // Let's not fail hard here.
-                StaticLog.logWarning("Attempt to set flags for a non-block: " + material);
+                StaticLog.logWarning("Attempt to set flags for a non-block: " + blockType);
             }
         } 
         catch (Exception e) {}
-        blockFlags.put(material, flags);
+        blockFlags.put(blockType, flags);
     }
 
     /**

@@ -20,6 +20,7 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
+import fr.neatmonster.nocheatplus.command.BaseCommand;
 import fr.neatmonster.nocheatplus.command.AbstractCommand;
 import fr.neatmonster.nocheatplus.command.testing.stopwatch.StopWatch;
 import fr.neatmonster.nocheatplus.command.testing.stopwatch.StopWatchRegistry;

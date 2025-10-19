@@ -19,16 +19,15 @@ import static org.junit.Assert.fail;
 import org.bukkit.Material;
 import org.junit.Test;
 
-import fr.neatmonster.nocheatplus.compat.bukkit.BridgeMaterial;
+import fr.neatmonster.nocheatplus.compat.BridgeMaterial;
 import fr.neatmonster.nocheatplus.config.ConfPaths;
 import fr.neatmonster.nocheatplus.config.ConfigFile;
-//import fr.neatmonster.nocheatplus.config.DefaultConfig;
+import fr.neatmonster.nocheatplus.config.DefaultConfig;
 import fr.neatmonster.nocheatplus.config.PathUtils;
 import fr.neatmonster.nocheatplus.config.RawConfigFile;
 import fr.neatmonster.nocheatplus.logging.StaticLog;
-import fr.neatmonster.nocheatplus.MockServerBase;
 
-public class TestConfig extends MockServerBase {
+public class TestConfig {
 
     private void testReadMaterial(String input, Material expectedMat) {
         Material mat = RawConfigFile.parseMaterial(input);

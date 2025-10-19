@@ -21,11 +21,11 @@ import fr.neatmonster.nocheatplus.NCPAPIProvider;
 import fr.neatmonster.nocheatplus.logging.Streams;
 import fr.neatmonster.nocheatplus.utilities.location.LocUtil;
 import fr.neatmonster.nocheatplus.utilities.location.PlayerLocation;
+import fr.neatmonster.nocheatplus.utilities.location.TrigUtil;
 import fr.neatmonster.nocheatplus.utilities.map.BlockCache;
 import fr.neatmonster.nocheatplus.utilities.map.BlockCache.IBlockCacheNode;
-import fr.neatmonster.nocheatplus.utilities.map.BlockFlags;
 import fr.neatmonster.nocheatplus.utilities.map.BlockProperties;
-import fr.neatmonster.nocheatplus.utilities.math.TrigUtil;
+import fr.neatmonster.nocheatplus.utilities.map.BlockFlags;
 
 /**
  * Some auxiliary static-access methods.
@@ -103,10 +103,10 @@ public class DebugUtil {
      * @param builder
      */
     public static void addMove(final PlayerLocation from, final PlayerLocation to, final StringBuilder builder) {
-        builder.append("From loc: ");
+        builder.append("From: ");
         addLocation(from, builder);
         builder.append("\n");
-        builder.append("To loc: ");
+        builder.append("To: ");
         addLocation(to, builder);
     }
 
@@ -151,16 +151,16 @@ public class DebugUtil {
         if (messagePrefix != null && ! messagePrefix.isEmpty()) {
             builder.append(messagePrefix);
         }
-        builder.append(" id: ");
+        builder.append(" id=");
         final IBlockCacheNode node = blockCache.getOrCreateBlockCacheNode(x, y, z, true);
         final Material id = node.getType();
         builder.append(id);
-        builder.append(" | data: ");
+        builder.append(" data=");
         builder.append(node.getData());
         final double[] bounds = node.getBounds();
         if (bounds != null) {
             final double minHeight = BlockProperties.getGroundMinHeight(blockCache, x, y, z, node, BlockFlags.getBlockFlags(id));
-            builder.append(" | shape: [");
+            builder.append(" shape=[");
             builder.append(bounds[0]);
             builder.append(", ");
             builder.append(bounds[1]);

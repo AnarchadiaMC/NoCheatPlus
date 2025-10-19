@@ -39,4 +39,5 @@ public class BukkitRail implements BukkitShapeModel {
         }
         return 0;
     }
+
 }

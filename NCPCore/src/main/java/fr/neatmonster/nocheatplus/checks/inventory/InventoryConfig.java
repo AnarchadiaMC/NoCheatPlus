@@ -38,33 +38,39 @@ import fr.neatmonster.nocheatplus.worlds.IWorldData;
  */
 public class InventoryConfig extends ACheckConfig {
 
-    public final boolean fastClickSpareCreative;
-    public final float fastClickShortTermLimit;
-    public final float fastClickNormalLimit;
-    public final int chestOpenLimit;
+    public final boolean    fastClickSpareCreative;
+    public final boolean 	fastClickTweaks1_5;
+    public final float		fastClickShortTermLimit;
+    public final float		fastClickNormalLimit;
+    public final int        chestOpenLimit;
     public final Set<String> inventoryExemptions = new HashSet<String>();
-    public final float fastClickImprobableWeight;
+    public final float      fastClickImprobableWeight;
     public final ActionList fastClickActions;
 
-    public final long fastConsumeDuration;
-    public final boolean fastConsumeWhitelist;
+    public final long		fastConsumeDuration;
+    public final boolean    fastConsumeWhitelist;
     public final Set<Material> fastConsumeItems = new HashSet<Material>();
     public final ActionList fastConsumeActions;
 
-    public final int gutenbergPageLimit;
+    public final int        gutenbergPageLimit;
     public final ActionList gutenbergActions;
 
-    public final boolean instantBowStrict;
-    public final long instantBowDelay;
-    public final boolean instantBowImprobableFeedOnly;
-    public final float instantBowImprobableWeight;
+    public final boolean 	instantBowStrict;
+    public final long       instantBowDelay;
+    public final boolean    instantBowImprobableFeedOnly;
+    public final float      instantBowImprobableWeight;
     public final ActionList instantBowActions;
 
-    public final boolean openClose;
-    public final boolean openCancelOnMove;
-    public final float openImprobableWeight;
-    public final boolean openDisableCreative;
+    public final ActionList instantEatActions;
 
+    public final boolean	openClose;
+    public final boolean	openCancelOther;
+    
+    public final boolean    invMoveDisableCreative;
+    public final double     invMoveHdistDivisor;
+    public final boolean    invMoveImprobableFeedOnly;
+    public static float     invMoveImprobableWeight;
+    public final ActionList invMoveActionList;
 
     // Hot fixes.
     public final boolean hotFixFallingBlockEndPortalActive;
@@ -78,10 +84,12 @@ public class InventoryConfig extends ACheckConfig {
     public InventoryConfig(final IWorldData worldData) {
         super(worldData);
         final ConfigFile data = worldData.getRawConfiguration();
+
         fastClickSpareCreative = data.getBoolean(ConfPaths.INVENTORY_FASTCLICK_SPARECREATIVE);
+        fastClickTweaks1_5 = data.getBoolean(ConfPaths.INVENTORY_FASTCLICK_TWEAKS1_5);
         fastClickShortTermLimit = (float) data.getDouble(ConfPaths.INVENTORY_FASTCLICK_LIMIT_SHORTTERM);
         fastClickNormalLimit = (float) data.getDouble(ConfPaths.INVENTORY_FASTCLICK_LIMIT_NORMAL);
-        chestOpenLimit = data.getInt(ConfPaths.INVENTORY_FASTCLICK_MIN_INTERACT_TIME);
+        chestOpenLimit = data.getInt(ConfPaths.INVENTORY_FASTCLICK_LIMIT_CHEST);
         data.readStringlFromList(ConfPaths.INVENTORY_FASTCLICK_EXCLUDE, inventoryExemptions);
         fastClickImprobableWeight = (float) data.getDouble(ConfPaths.INVENTORY_FASTCLICK_IMPROBABLE_WEIGHT);
         fastClickActions = data.getOptimizedActionList(ConfPaths.INVENTORY_FASTCLICK_ACTIONS, Permissions.INVENTORY_FASTCLICK);
@@ -95,6 +103,10 @@ public class InventoryConfig extends ACheckConfig {
              */
             NCPAPIProvider.getNoCheatPlusAPI().getWorldDataManager().overrideCheckActivation(
                     CheckType.INVENTORY_FASTCONSUME, AlmostBoolean.NO, 
+                    OverrideType.PERMANENT, true);
+            // Just in case they disable fastconsume in the config and switch to default (instanteat)
+            NCPAPIProvider.getNoCheatPlusAPI().getWorldDataManager().overrideCheckActivation(
+                    CheckType.INVENTORY_INSTANTEAT, AlmostBoolean.NO, 
                     OverrideType.PERMANENT, true);
             NCPAPIProvider.getNoCheatPlusAPI().getWorldDataManager().overrideCheckActivation(
                     CheckType.INVENTORY_INSTANTBOW, AlmostBoolean.NO, 
@@ -115,11 +127,18 @@ public class InventoryConfig extends ACheckConfig {
         instantBowImprobableWeight = (float) data.getDouble(ConfPaths.INVENTORY_INSTANTBOW_IMPROBABLE_WEIGHT);
         instantBowActions = data.getOptimizedActionList(ConfPaths.INVENTORY_INSTANTBOW_ACTIONS, Permissions.INVENTORY_INSTANTBOW);
 
+        instantEatActions = data.getOptimizedActionList(ConfPaths.INVENTORY_INSTANTEAT_ACTIONS, Permissions.INVENTORY_INSTANTEAT);
+
         openClose = data.getBoolean(ConfPaths.INVENTORY_OPEN_CLOSE);
-        openCancelOnMove = data.getBoolean(ConfPaths.INVENTORY_OPEN_CLOSE_ON_MOVE);
-        openDisableCreative = data.getBoolean(ConfPaths.INVENTORY_OPEN_DISABLE_CREATIVE);
-        openImprobableWeight = (float) data.getDouble(ConfPaths.INVENTORY_OPEN_IMPROBABLE_WEIGHT);
+        openCancelOther = data.getBoolean(ConfPaths.INVENTORY_OPEN_CANCELOTHER);
+        
+	    invMoveDisableCreative = data.getBoolean(ConfPaths.INVENTORY_INVENTORYMOVE_DISABLECREATIVE);
+	    invMoveHdistDivisor = data.getDouble(ConfPaths.INVENTORY_INVENTORYMOVE_HDISTDIVISOR);
+        invMoveImprobableFeedOnly = data.getBoolean(ConfPaths.INVENTORY_INVENTORYMOVE_IMPROBABLE_FEEDONLY);
+        invMoveImprobableWeight = (float) data.getDouble(ConfPaths.INVENTORY_INSTANTBOW_IMPROBABLE_WEIGHT);
+        invMoveActionList = data.getOptimizedActionList(ConfPaths.INVENTORY_INVENTORYMOVE_ACTIONS, Permissions.INVENTORY_INVENTORYMOVE);
 
         hotFixFallingBlockEndPortalActive = data.getBoolean(ConfPaths.INVENTORY_HOTFIX_DUPE_FALLINGBLOCKENDPORTAL);
     }
+
 }

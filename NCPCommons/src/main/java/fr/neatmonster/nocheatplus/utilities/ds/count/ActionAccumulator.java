@@ -23,147 +23,112 @@ import fr.neatmonster.nocheatplus.utilities.StringUtil;
  *
  */
 public class ActionAccumulator {
-    /** Counter of added events for each bucket. */
-    private final int[] valueCounter;
-    /** Value accumulation (sum). */
+    /** Event counter. */
+    private final int[] counts;
+    /** Value accumulation. */
     private final float[] buckets;
-    /** How many events can a bucket hold. */
+    /** Capacity of each bucket. */
+    //
     private final int bucketCapacity;
     
-    /**
-     * Create a new ActionAccumulator instance
-     * 
-     * @param nBuckets Number of buckets to hold values with
-     * @param bucketCapacity How many events can a bucket hold 
-     */
     public ActionAccumulator(final int nBuckets, final int bucketCapacity) {
-        this.valueCounter = new int[nBuckets];
+        this.counts = new int[nBuckets];
         this.buckets = new float[nBuckets];
         this.bucketCapacity = bucketCapacity;
     }
     
-    /**
-     * Add value to accumulation (starting to the first bucket, shifting into the other ones if present)
-     * See shift()
-     */
     public void add(float value) {
-        if (valueCounter[0] >= bucketCapacity) {
-            // First bucket is full, shift data into the next one .
+        // This bucket has reached its maximum capacity, shift into the next one, if present.
+        if (counts[0] >= bucketCapacity) {
             shift();
         }
-        // Each time a value is added, the event counter for this bucket increases.
-        valueCounter[0]++ ;
-        // Accumulate the value
+        // Increase event counter with each value added
+        counts[0] ++;
+        // Add value to accumulation.
         buckets[0] += value;
     }
     
-    /**
-     * On reaching the maximum capacity of the first bucket, 
-     * shift data into the next one and empty the first (which will be ready to accumulate values again).
-     */
     private void shift() {
-        // Start from the last bucket and decrease
-        for (int bucketIndex = buckets.length - 1; bucketIndex > 0; bucketIndex--) {
-            // Shift counted events to the next bucket
-            valueCounter[bucketIndex] = valueCounter[bucketIndex - 1];
-            // Shift accumulated values to the next bucket
-            buckets[bucketIndex] = buckets[bucketIndex - 1];
+        // Fill the other buckets.
+        for (int i = buckets.length - 1; i > 0; i--) {
+            counts[i] = counts[i - 1];
+            buckets[i] = buckets[i - 1];
         }
-        // Reset event counter of the first bucket
-        valueCounter[0] = 0;
-        // Empty the bucket (accumulated values)
+        // Reset the first bucket
+        counts[0] = 0;
         buckets[0] = 0;
-    } 
+    }
 
     /**
-     * Get the total accumulation value of this accumulator (values of all buckets)
+     * Get the *total* score (sum of all buckets' accumulated values)
+     * @return
      */
     public float score() {
         float score = 0;
-        for (int i = 0; i < buckets.length; i++) {
-            score += buckets[i];
+        for (float bucket : buckets) {
+            score += bucket;
         }
         return score;
     }
     
     /**
-     * Get the total events of the whole accumulator (of all buckets)
+     * Get the *total* events (sum of all buckets' events)
+     * @return
      */
     public int count() {
-        int globalCounter = 0;
-        for (int i = 0; i < valueCounter.length; i++) {
-            globalCounter += valueCounter[i];
+        int count = 0;
+        for (int j : counts) {
+            count += j;
         }
-        return globalCounter;
+        return count;
     }
     
     /**
-     * Reset all 
+     * Reset all buckets
+     * @return 
      */
     public void clear() {
         for (int i = 0; i < buckets.length; i++) {
-            valueCounter[i] = 0;
+            counts[i] = 0;
             buckets[i] = 0;
         }
     }
     
     /**
-     * Get the events counted for this bucket
-     * @param bucket
-     * @return how many events have been added(counted) to the bucket
+     * Get the events counted only for this bucket.
+     * @return 
      */
     public int bucketCount(final int bucket) {
-        return valueCounter[bucket];
+        return counts[bucket];
     }
     
     /**
-     * Get the accumulation value of this bucket (sum of all values added to this bucket)
-     * @param bucket
-     * @return accumulation value of this bucket
+     * Get the score only for this bucket.
+     * @return 
      */
     public float bucketScore(final int bucket) {
         return buckets[bucket];
     }
     
-    /**
-     * Get the mean of this bucket
-     * @param bucket 
-     * @return the mean of this bucket
-     */
-    public float mean(final int bucket) {
-        return bucketScore(bucket) / bucketCount(bucket);
-    }
-
-    /**
-     * Get the mean of the whole accumulator
-     */
-    public float mean() {
-        return score() / count();
-    }  
-    
-    /**
-     * How many buckets does the ActionAccumulator instance have
-     */
     public int numberOfBuckets() {
         return buckets.length;
     }
     
-    /**
-     * How many events(count) can each bucket of the ActionAccumulator instance have
-     */
     public int bucketCapacity() {
         return bucketCapacity;
     }
     
     /**
      * Simple display of bucket contents, no class name.
+     * @return
      */
     public String toInformalString() {
         StringBuilder b = new StringBuilder(buckets.length * 10);
         b.append("|");
         for (int i = 0; i < buckets.length; i++){
-            b.append(StringUtil.fdec3.format(buckets[i]) + "/" + valueCounter[i] + "|");
+            b.append(StringUtil.fdec3.format(buckets[i]) + "/" + counts[i] + "|");
         }
         return b.toString();
     }
+    
 }

@@ -25,8 +25,7 @@ import fr.neatmonster.nocheatplus.players.IPlayerData;
 
 /**
  * Very, very important check.
- * TODO: Demote this shit into a simple boolean config option...
- * @author asofold
+ * @author mc_dev
  *
  */
 public class MunchHausen extends Check {

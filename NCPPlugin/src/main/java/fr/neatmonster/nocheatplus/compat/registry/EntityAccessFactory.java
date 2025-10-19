@@ -15,6 +15,7 @@
 package fr.neatmonster.nocheatplus.compat.registry;
 
 import fr.neatmonster.nocheatplus.compat.MCAccess;
+import fr.neatmonster.nocheatplus.components.entity.IEntityAccessLastPositionAndLook;
 import fr.neatmonster.nocheatplus.components.entity.IEntityAccessVehicle;
 
 /**

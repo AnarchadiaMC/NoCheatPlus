@@ -20,14 +20,13 @@ import fr.neatmonster.nocheatplus.PluginTests;
 import fr.neatmonster.nocheatplus.checks.CheckType;
 import fr.neatmonster.nocheatplus.checks.CheckType.CheckTypeType;
 import fr.neatmonster.nocheatplus.permissions.RegisteredPermission;
-import fr.neatmonster.nocheatplus.MockServerBase;
 
 /**
  * Uh oh.
  * @author asofold
  *
  */
-public class TestDump extends MockServerBase {
+public class TestDump {
     @Test
     public void dumpCheckSilentPermissionForPluginYML() {
         PluginTests.setUnitTestNoCheatPlusAPI(false);

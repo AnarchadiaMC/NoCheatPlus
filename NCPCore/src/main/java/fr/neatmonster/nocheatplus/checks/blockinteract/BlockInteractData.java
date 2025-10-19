@@ -28,7 +28,7 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import fr.neatmonster.nocheatplus.checks.CheckType;
 import fr.neatmonster.nocheatplus.checks.access.ACheckData;
 import fr.neatmonster.nocheatplus.utilities.TickTask;
-import fr.neatmonster.nocheatplus.utilities.math.TrigUtil;
+import fr.neatmonster.nocheatplus.utilities.location.TrigUtil;
 
 /**
  * Player specific data for the block interact checks.
@@ -36,30 +36,32 @@ import fr.neatmonster.nocheatplus.utilities.math.TrigUtil;
 public class BlockInteractData extends ACheckData {
 
     // Violation levels.
-    public double directionVL;
-    public double reachVL;
-    public double speedVL;
-    public double visibleVL;
+    public double directionVL	= 0;
+    public double reachVL		= 0;
+    public double speedVL		= 0;
+    public double visibleVL		= 0;
 
-    // Data shared between checks
+    // General data
+    public int lookInteraction = -1;
     // Last block interacted with
     /** Set to Integer.MAX_VALUE for reset. */
     private int lastX = Integer.MAX_VALUE;
     private int lastY, lastZ;
     /** null for air */
     private Material lastType = null;
-    private Block lastBlock = null;
     private int lastTick;
     private Action lastAction = null;
     private boolean lastAllowUseBlock = false;
     private boolean lastAllowUseItem = false;
     private boolean lastIsCancelled = true;
-    
-    // Data of the speed check.
+
+    // Data of the reach check.
+    public double reachDistance;
+
     /** Last reset time. */
-    public long speedTime   = 0;
+    public long speedTime	= 0;
     /** Number of interactions since last reset-time. */
-    public int  speedCount  = 0;
+    public int  speedCount	= 0;
 
     /** Cancel is set, times in a row. */
     public int subsequentCancel = 0;
@@ -88,16 +90,14 @@ public class BlockInteractData extends ACheckData {
      * 
      * @param block
      * @param action
-     * @param rightClickedBlock
      */
-    public void setLastBlock(final Block block, final Action action, final Block rightClickedBlock) {
+    public void setLastBlock(final Block block, final Action action) {
         lastTick = TickTask.getTick();
         lastAction = action;
         lastX = block.getX();
         lastY = block.getY();
         lastZ = block.getZ();
         lastType = block.getType();
-        lastBlock = rightClickedBlock;
         if (lastType == Material.AIR) {
             lastType = null;
         }
@@ -113,7 +113,6 @@ public class BlockInteractData extends ACheckData {
         lastAction = null;
         lastX = Integer.MAX_VALUE;
         lastType = null;
-        lastBlock = null;
         lastAllowUseBlock = false;
         lastAllowUseItem = false;
         lastIsCancelled = true;
@@ -231,15 +230,6 @@ public class BlockInteractData extends ACheckData {
     }
 
     /**
-     * Return the block last interacted with.
-     * 
-     * @return
-     */
-    public Block getLastBlock() {
-        return lastBlock;
-    }
-
-    /**
      * Get the tick of the last interaction with a block.
      * 
      * @return
@@ -351,4 +341,5 @@ public class BlockInteractData extends ACheckData {
     public void setLastAllowUseBlock(final boolean allowUseBlock) {
         this.lastAllowUseBlock = allowUseBlock;
     }
+
 }

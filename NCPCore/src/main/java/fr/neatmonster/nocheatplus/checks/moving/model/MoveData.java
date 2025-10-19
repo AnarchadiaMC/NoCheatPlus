@@ -14,13 +14,10 @@
  */
 package fr.neatmonster.nocheatplus.checks.moving.model;
 
-import org.bukkit.entity.Player;
-import org.bukkit.util.Vector;
-
 import fr.neatmonster.nocheatplus.checks.CheckType;
 import fr.neatmonster.nocheatplus.components.location.IGetLocationWithLook;
 import fr.neatmonster.nocheatplus.utilities.location.RichBoundsLocation;
-import fr.neatmonster.nocheatplus.utilities.math.TrigUtil;
+import fr.neatmonster.nocheatplus.utilities.location.TrigUtil;
 
 /**
  * Carry data of a move, involving from- and to- locations. This is for
@@ -52,30 +49,17 @@ public class MoveData {
      * Always set on setPositions call.
      */
     public boolean toIsValid = false; // Must initialize.
-    
-    /**
-     * Inputs are typically read during player movement (in other words, on PlayerMoveEvents).<br>
-     * Calling {@link Player#getCurrentInput()} only provides the current input state
-     * at the time the move event is fired. It does not indicate when the input changed,
-     * thus any input changes that occurred between events are lost, and we need to accurately keep track of them for moving checks.
-     * Do note that this field is updated only on input changes (meaning, only when keys are pressed or released)
-     */
-    public InputDirection input = new InputDirection();
-
 
     /////////////////////////////////////////////////////////////////////
     // Only set if a move end-point is set, i.e. toIsValid set to true.
     /////////////////////////////////////////////////////////////////////
+
     // Coordinates and distances.
+
     /**
      * End point of a move.
      */
     public final LocationData to = new LocationData();
-
-    /**
-     * The horizontal distance covered by a move on the X axis. Only valid if toIsValid is set to true.
-     */
-    public double xDistance;
 
     /**
      * The vertical distance covered by a move. Note the sign for moving up or
@@ -84,46 +68,58 @@ public class MoveData {
     public double yDistance;
 
     /**
-     * The horizontal distance covered by a move on the Z axis. Only valid if toIsValid is set to true.
-     */
-    public double zDistance;
-
-    /**
-     * The horizontal distance covered by a move. Only valid if toIsValid is set to true.
+     * The horizontal distance covered by a move. Note the sign for moving up or
+     * down. Only valid if toIsValid is set to true.
      */
     public double hDistance;
 
     /** Total distance squared. Only valid if toIsValid is set to true. */
     public double distanceSquared;
 
-
     //////////////////////////////////////////////////////////
     // Reset with set, could be lazily set during checking.
     //////////////////////////////////////////////////////////
+
     // Properties involving the environment.
+
     /**
-     * Head is obstructed for a living entity, or can't/couldn't move (further) up due to
+     * Head is obstructed for a living entity, or can't/couldn't move up due to
      * being blocked somehow. Should expect descending next move, if in air.
      * <br>
-     * Set in SurvivalFly with the {@link fr.neatmonster.nocheatplus.utilities.location.RichEntityLocation#collide(Vector, boolean, double[])} method.
-     * <li>NOTE: This is much stricter than {@link fr.neatmonster.nocheatplus.utilities.location.RichEntityLocation#seekCollisionAbove(double, boolean)}.<br>
-     * This only considers the exact moment of collision, the latter is much more lenient.</li>
+     * Set at the beginning of SurvivalFly.check, if either end-point is not on
+     * ground. (Not sure if used for vehicles.)
      */
     public boolean headObstructed;
 
     /**
-     * Generic flag: the player is moving from/onto ground or touched ground by means of a workaround. This flag is only
-     * updated by from/to.onGround, if {@link MoveData#setExtraProperties(RichBoundsLocation, RichBoundsLocation)} is called for
+     * Player is moving downstream in flowing liquid (horizontal rather). Set in
+     * SurvivalFly.check.
+     */
+    public boolean downStream;
+   
+    /**
+     * Like isDownStream specifically for vertical move.
+     */
+    public boolean inWaterfall;
+
+    /**
+     * Somehow the player has touched ground with this move (including
+     * workarounds), thus the client might move up next move. This flag is only
+     * updated by from/to.onGround, if MoveData.setExtraProperties is called for
      * this instance.
      */
     public boolean touchedGround;
 
     /**
-     * The player touched ground by the means of a lost-ground workaround exclusively
+     * Set if touchedGround has been set due to applying a workaround
+     * exclusively.
      */
-    public boolean touchedGroundWorkaround, fromLostGround, toLostGround;
-    
-    // Meta stuff
+    public boolean touchedGroundWorkaround;
+    /**
+     * Set if strict elytra active on a move.
+     */
+    public boolean elytrafly;
+
     /**
      * The fly check that was using the current data. One of MOVING_SURVIVALFLY,
      * MOVING_CREATIVEFLY, UNKNOWN.
@@ -139,12 +135,11 @@ public class MoveData {
     private void setPositions(final IGetLocationWithLook from, final IGetLocationWithLook to) {
         this.from.setLocation(from);
         this.to.setLocation(to);
-        xDistance = this.to.getX() - this.from.getX();
         yDistance = this.to.getY() - this.from.getY();
-        zDistance = this.to.getZ() - this.from.getZ();
         hDistance = TrigUtil.xzDistance(from, to);
         distanceSquared = yDistance * yDistance + hDistance * hDistance;
         toIsValid = true;
+        elytrafly = false;
         flyCheck = null;
         modelFlying = null;
     }
@@ -171,10 +166,9 @@ public class MoveData {
         to.extraPropertiesValid = false;
         // Properties involving the environment.
         headObstructed = false;
+        downStream = false;
         touchedGround = false;
         touchedGroundWorkaround = false;
-        fromLostGround = false;
-        toLostGround = false;
         // Done.
         valid = true;
     }

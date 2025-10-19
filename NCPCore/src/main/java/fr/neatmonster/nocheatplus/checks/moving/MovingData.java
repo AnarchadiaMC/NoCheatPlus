@@ -15,7 +15,6 @@
 package fr.neatmonster.nocheatplus.checks.moving;
 
 import java.util.Collection;
-import java.util.List;
 import java.util.concurrent.Callable;
 
 import org.bukkit.Location;
@@ -30,18 +29,19 @@ import fr.neatmonster.nocheatplus.checks.access.ACheckData;
 import fr.neatmonster.nocheatplus.checks.moving.location.setback.DefaultSetBackStorage;
 import fr.neatmonster.nocheatplus.checks.moving.location.tracking.LocationTrace;
 import fr.neatmonster.nocheatplus.checks.moving.location.tracking.LocationTrace.TraceEntryPool;
-import fr.neatmonster.nocheatplus.checks.moving.model.InputDirection;
+import fr.neatmonster.nocheatplus.checks.moving.magic.Magic;
+import fr.neatmonster.nocheatplus.checks.moving.model.LocationData;
 import fr.neatmonster.nocheatplus.checks.moving.model.LiftOffEnvelope;
 import fr.neatmonster.nocheatplus.checks.moving.model.MoveConsistency;
 import fr.neatmonster.nocheatplus.checks.moving.model.MoveTrace;
 import fr.neatmonster.nocheatplus.checks.moving.model.PlayerMoveData;
 import fr.neatmonster.nocheatplus.checks.moving.model.VehicleMoveData;
-import fr.neatmonster.nocheatplus.checks.moving.velocity.PairAxisVelocity;
-import fr.neatmonster.nocheatplus.checks.moving.velocity.PairEntry;
+import fr.neatmonster.nocheatplus.checks.moving.velocity.AccountEntry;
+import fr.neatmonster.nocheatplus.checks.moving.velocity.FrictionAxisVelocity;
 import fr.neatmonster.nocheatplus.checks.moving.velocity.SimpleAxisVelocity;
 import fr.neatmonster.nocheatplus.checks.moving.velocity.SimpleEntry;
+import fr.neatmonster.nocheatplus.checks.moving.velocity.VelocityFlags;
 import fr.neatmonster.nocheatplus.checks.workaround.WRPT;
-import fr.neatmonster.nocheatplus.compat.AlmostBoolean;
 import fr.neatmonster.nocheatplus.compat.blocks.changetracker.BlockChangeReference;
 import fr.neatmonster.nocheatplus.components.data.IDataOnReload;
 import fr.neatmonster.nocheatplus.components.data.IDataOnRemoveSubCheckData;
@@ -49,28 +49,23 @@ import fr.neatmonster.nocheatplus.components.data.IDataOnWorldUnload;
 import fr.neatmonster.nocheatplus.components.entity.IEntityAccessDimensions;
 import fr.neatmonster.nocheatplus.components.location.IGetPosition;
 import fr.neatmonster.nocheatplus.components.location.IPositionWithLook;
-import fr.neatmonster.nocheatplus.components.modifier.IAttributeAccess;
 import fr.neatmonster.nocheatplus.components.registry.IGetGenericInstance;
-import fr.neatmonster.nocheatplus.components.registry.event.IGenericInstanceHandle;
 import fr.neatmonster.nocheatplus.players.IPlayerData;
 import fr.neatmonster.nocheatplus.utilities.CheckUtils;
 import fr.neatmonster.nocheatplus.utilities.TickTask;
+import fr.neatmonster.nocheatplus.utilities.ds.count.ActionAccumulator;
 import fr.neatmonster.nocheatplus.utilities.ds.count.ActionFrequency;
 import fr.neatmonster.nocheatplus.utilities.location.LocUtil;
 import fr.neatmonster.nocheatplus.utilities.location.PlayerLocation;
 import fr.neatmonster.nocheatplus.utilities.location.RichEntityLocation;
+import fr.neatmonster.nocheatplus.utilities.location.TrigUtil;
 import fr.neatmonster.nocheatplus.utilities.map.BlockProperties;
-import fr.neatmonster.nocheatplus.utilities.math.MathUtil;
-import fr.neatmonster.nocheatplus.utilities.math.TrigUtil;
-import fr.neatmonster.nocheatplus.utilities.moving.Magic;
 import fr.neatmonster.nocheatplus.workaround.IWorkaroundRegistry.WorkaroundSet;
 
 /**
  * Player specific data for the moving checks.
  */
 public class MovingData extends ACheckData implements IDataOnRemoveSubCheckData, IDataOnReload, IDataOnWorldUnload {
-    
-    private final IGenericInstanceHandle<IAttributeAccess> attributeAccess = NCPAPIProvider.getNoCheatPlusAPI().getGenericInstanceHandle(IAttributeAccess.class);
 
     //////////////////////////////////////////////
     // Violation levels                         //
@@ -90,13 +85,19 @@ public class MovingData extends ACheckData implements IDataOnRemoveSubCheckData,
     //////////////////////////////////////////////
     // Data shared between the moving checks    //
     //////////////////////////////////////////////
-    public List<Location> lastCollidingEntitiesLocations = null;
-    /** Has leather boot on*/
-    public boolean hasLeatherBoots = false;
-    public double lastY = -64.0;
-    /** Delay (in ticks) from jump to back on ground */
-    public int jumpDelay;
-    public double lastLevitationLevel;
+    /** Tick counter for how long a player has been in water 0= out of water, 10= fully in water. */
+    public int liqtick = 0;
+    /** ID for players leaving a liquid in order to patch waterwalk exploits: 0= no checking, 1= enforce speed restriction until ground is touched or the player sinks back in water/lava. */
+    public int surfaceId = 0;
+    /** Tick counter used to workaround certain transitions with repeated or high motion (e.g.: gliding->normal, riptiding->normal). */
+    // TODO: Rename -> motionTransitionTick/(...)
+    public int keepfrictiontick = 0;
+    /** Countdown for ending a bunnyfly phase(= phase after bunnyhop). 10(max) represents a bunnyhop, 9-1 represent the tick at which this bunnfly phase currently is. */
+    public int bunnyhopDelay;
+    /** bunnyHopDelay phase before applying a LostGround case (set in SurvivalFly.bunnyHop()) */ 
+    public int lastbunnyhopDelay = 0;
+    /** Ticks after landing on ground (InAir->Ground). Mainly used in SurvivalFly. */
+    public int momentumTick = 0;
     /** Count set back (re-) setting. */
     private int playerMoveCount = 0;
     /** setBackResetCount (incremented) at the time of (re-) setting the ordinary set back. */
@@ -107,11 +108,16 @@ public class MovingData extends ACheckData implements IDataOnRemoveSubCheckData,
     public int speedTick = 0;
     /** Walk speed */
     public float walkSpeed = 0.0f;
-    public float nextWalkSpeed = 0.0f;
     /** Fly speed */
     public float flySpeed = 0.0f;
     /** Keep track of the amplifier given by the jump potion. */
     public double jumpAmplifier = 0;
+    /** Multiplier at the last time sprinting. */
+    public double multSprinting = 1.30000002; 
+    /** Used in workaroundFlyCheckTransition() in the MovingListener for velocity. */
+    public long delayWorkaround = 0;
+    /** Last time the player was actually sprinting. */
+    public long timeSprinting = 0;
     /** Last time the player was riptiding */
     public long timeRiptiding = 0;
     /** Represents how long a vehicle has been tossed up by a bubble column */
@@ -120,54 +126,47 @@ public class MovingData extends ACheckData implements IDataOnRemoveSubCheckData,
     /** Used as a workaround for boats leaving ice while still having velocity from ice */
     public int boatIceVelocityTicks = 0;
     public long timeCamelDash = 0;
+    /** Temporary snow fix flag */
+    // TODO: remove.
+    public boolean snowFix = false;
+    /** Whether or not this horizontal movement is leading downstream. */
+    public boolean isdownstream = false;
+    /** Count how long a player has been inside a bubble stream */
+    public int insideBubbleStreamCount = 0;
     /** Last used block change id (BlockChangeTracker). */
     public final BlockChangeReference blockChangeRef = new BlockChangeReference();
     
-    // *----------Speed/Friction factors (hor/ver)----------*
-    /** Horizontal friction factor from NMS.*/
-    // TODO: Might not good to set those at 0.0f, can cause NaN when /ncp removeplayer command execute
-    public float lastFrictionHorizontal = 0.6f;
-    /** Horizontal friction factor from NMS.*/
-    public float nextFrictionHorizontal = 0.0f;
-    /** Inertia: friction * 0.91 */
-    public float lastInertia = 0.0f;
-    /** Inertia: friction * 0.91 */
-    public float nextInertia = 0.0f;
-    /** Speed multiplier for blocks that can make the player stick/stuck to/into it (such as webs).*/
-    public double lastStuckInBlockHorizontal = 1.0; 
-    /** Speed multiplier for blocks that can make the player stick/stuck to/into it (such as webs).*/
-    public double nextStuckInBlockHorizontal = 1.0; 
-    /** Single block-speed multiplier.*/
-    public float lastBlockSpeedMultiplier = 1.0f;
-    /** Single block-speed multiplier.*/
-    public float nextBlockSpeedMultiplier = 1.0f;
-    /** Stuck-in-block vertical speed factor */
-    public double nextStuckInBlockVertical = 0.0;
-    /** Stuck-in-block vertical speed factor */
-    public double lastStuckInBlockVertical = 0.0;
+    // *----------Friction (hor/ver)----------*
+    /** Rough friction factor estimate, 0.0 is the reset value (maximum with lift-off/burst speed is used). */
+    public double lastFrictionHorizontal = 0.0;
+    /** Rough friction factor estimate, 0.0 is the reset value (maximum with lift-off/burst speed is used). */
+    public double lastFrictionVertical = 0.0;
+    /** Used during processing, no resetting necessary.*/
+    public double nextFrictionHorizontal = 0.0;
     /** Used during processing, no resetting necessary.*/
     public double nextFrictionVertical = 0.0;
-    /** Ordinary vertical friction factor (lava, water, air) */
-    public double lastFrictionVertical = 0.0;
-    public double nextGravity = 0.0;
-    public double lastGravity = 0.0;
+    
+    // *----------No slowdown related data----------*
+    /** Whether the player is using an item */
+    public boolean isUsingItem = false;
+    /** TODO: Whether the player use the item on left hand */
+    public boolean offHandUse = false;
+    /** TODO: Pre check conditions */
+    public boolean mightUseItem = false;
+    /** TODO: */
+    public long releaseItemTime = 0;
+    /** Detection flag */
+    public boolean isHackingRI = false;
+    public boolean invalidItemUse = false;
+    /** Keep track of hopping while using items */
+    public int noSlowHop = 0;
 
     // *----------Move / Vehicle move tracking----------*
     /** Keep track of currently processed (if) and past moves for player moving. Stored moves can be altered by modifying the int. */
-    public final MoveTrace <PlayerMoveData> playerMoves = new MoveTrace<PlayerMoveData>(new Callable<PlayerMoveData>() {
-        @Override
-        public PlayerMoveData call() throws Exception {
-            return new PlayerMoveData();
-        }
-    }, 6); 
+    public final MoveTrace <PlayerMoveData> playerMoves = new MoveTrace<>(PlayerMoveData::new, 16); //+ currentmove = 17. For keeping track of moves influenced by ice friction and such, perhaps it's too much... The 6 extra past moves are for bunnyhop on ice with jump boost.
     /** Keep track of currently processed (if) and past moves for vehicle moving. Stored moves can be altered by modifying the int. */
     // TODO: There may be need to store such data with vehicles, or detect tandem abuse in a different way.
-    public final MoveTrace <VehicleMoveData> vehicleMoves = new MoveTrace<VehicleMoveData>(new Callable<VehicleMoveData>() {
-        @Override
-        public VehicleMoveData call() throws Exception {
-            return new VehicleMoveData();
-        }
-    }, 2);
+    public final MoveTrace <VehicleMoveData> vehicleMoves = new MoveTrace<>(VehicleMoveData::new, 2);
 
     // *----------Velocity handling----------* 
     /** Tolerance value for using vertical velocity (the client sends different values than received with fight damage). */
@@ -175,7 +174,15 @@ public class MovingData extends ACheckData implements IDataOnRemoveSubCheckData,
     /** Vertical velocity modeled as an axis (positive and negative possible) */
     private final SimpleAxisVelocity verVel = new SimpleAxisVelocity();
     /** Horizontal velocity modeled as an axis (always positive) */
-    private final PairAxisVelocity horVel = new PairAxisVelocity();
+    private final FrictionAxisVelocity horVel = new FrictionAxisVelocity();
+    /** Whether or not the calculated explosion velocity should be applied. */
+    public boolean shouldApplyExplosionVelocity = false;
+    /** Velocity explosion counter (X). */
+    public double explosionVelAxisX = 0.0;
+    /** Velocity explosion counter (Y). */
+    public double explosionVelAxisY = 0.0;
+    /** Velocity explosion counter (Z). */
+    public double explosionVelAxisZ = 0.0;
     /** Compatibility entry for bouncing off of slime blocks and the like. */
     public SimpleEntry verticalBounce = null;
 
@@ -186,8 +193,7 @@ public class MovingData extends ACheckData implements IDataOnRemoveSubCheckData,
     private Location setBack = null;
     /** Telepot location, shared between fly checks */
     private Location teleported = null;
-    /** Workaround for Folia servers missing the PlayerChangeWorld event: world is set on PlayerMoveEvents, lowest priority */
-    public World fromMissedWorldChange = null;
+    public World currentWorldToChange = null;
 
 
 
@@ -207,13 +213,13 @@ public class MovingData extends ACheckData implements IDataOnRemoveSubCheckData,
     // *----------Data of the MorePackets check----------*
     /** Packet frequency count. */
     public final ActionFrequency morePacketsFreq;
-    /** Burst  count. */
+    /** Burst count. */
     public final ActionFrequency morePacketsBurstFreq;
     /** Setback for MP. */
     private Location morePacketsSetback = null;
 
     // *----------Data of the NoFall check----------*
-    /** The fall distance calculated by NCP */
+    /** Our calculated fall distance */
     public float noFallFallDistance = 0;
     /** Last y coordinate from when the player was on ground. */
     public double noFallMaxY = 0;
@@ -223,26 +229,41 @@ public class MovingData extends ACheckData implements IDataOnRemoveSubCheckData,
     public Location noFallCurrentLocOnWindChargeHit = null;
 
     // *----------Data of the SurvivalFly check----------*
-    /** Default lift-off envelope, used after resetting. <br> TODO: Test UNKNOWN vs NORMAL. */
+    /** Default lift-off envelope, used after resetting. <br> TODO: Test, might be better ground. */
     private static final LiftOffEnvelope defaultLiftOffEnvelope = LiftOffEnvelope.UNKNOWN;
     /** playerMoveCount at the time of the last sf violation. */
     public int sfVLMoveCount = 0;
-    /** Count in air events for this jumping phase, resets when landing on ground, with set-backs and similar. */
+    /** The current horizontal buffer value. Horizontal moving VLs get compensated with emptying the buffer. */
+    public double sfHorizontalBuffer = 0.0;
+    /** Event-counter to cover up for sprinting resetting server side only. Set in the FighListener. */
+    public int lostSprintCount = 0;
+    /** Count how long the player has been in the air, resets when landing on ground. */
     public int sfJumpPhase = 0;
+    /** Count how many times in a row yDistance has been zero, only for in-air moves, updated on not cancelled moves (aimed at in-air workarounds) */
+    public int sfZeroVdistRepeat = 0;
     /** "Dirty" flag, for receiving velocity and similar while in air. */
-    @Deprecated
     private boolean sfDirty = false;
-    /** Basic envelope constraints/presets for lifting off ground. */
+    /** Indicate low jumping descending phase (likely cheating). */
+    public boolean sfLowJump = false;
+    /** Hacky way to indicate that this movement cannot be a lowjump. */
+    public boolean sfNoLowJump = false; 
+    /** Basic envelope constraints for lifting off ground. */
     public LiftOffEnvelope liftOffEnvelope = defaultLiftOffEnvelope;
+    /** Count how many moves have been made inside a medium (other than air). */
+    public int insideMediumCount = 0;
     /** Counting while the player is not on ground and not moving. A value < 0 means not hovering at all. */
     public int sfHoverTicks = -1;
     /** First count these down before incrementing sfHoverTicks. Set on join, if configured so. */
     public int sfHoverLoginTicks = 0;
     /** Fake in air flag: set with any violation, reset once on ground. */
     public boolean sfVLInAir = false;
+    /** Vertical accounting: gravity enforcer (for a minimum amount) */
+    public final ActionAccumulator vDistAcc = new ActionAccumulator(3, 3); // 3 buckets with max capacity of 3 events
+    /** Horizontal accounting: tracker of actual speed / allowed base speed */
+    public final ActionAccumulator hDistAcc = new ActionAccumulator(1, 100); // 1 bucket capable of holding a maximum of 100 events.
     /** Workarounds (AirWorkarounds,LiquidWorkarounds). */
     public final WorkaroundSet ws;
-    /** Will be set to true on BedEnterEvent, then checked for on BedLeaveEvent. */
+    /** Bed-flying flag */
     public boolean wasInBed = false;
 
     // *----------Data of the vehicles checks----------*
@@ -264,10 +285,7 @@ public class MovingData extends ACheckData implements IDataOnRemoveSubCheckData,
     //////////////////////////////////////////////
     // HOT FIX / WORKAROUNDS                    //
     //////////////////////////////////////////////
-    /**
-     * Set to true after login/respawn, only if the set back is reset there. Reset in MovingListener after handling PlayerMoveEvent.
-     * For more details see: <a href="https://github.com/Updated-NoCheatPlus/NoCheatPlus/commit/6d6f908512543f6289b51bb4c60a1940bcea9d4d">...</a> 
-     */
+    /** Set to true after login/respawn, only if the set back is reset there. Reset in MovingListener after handling PlayerMoveEvent */
     public boolean joinOrRespawn = false;
     /** Number of (player/vehicle) move events since set.back. Update after running standard checks on that EventPriority level (not MONITOR). */
     public int timeSinceSetBack = 0;
@@ -275,19 +293,18 @@ public class MovingData extends ACheckData implements IDataOnRemoveSubCheckData,
     public int lastSetBackHash = 0;
     /** Position teleported from into another world. Only used for certain contexts for workarounds. */
     public IPositionWithLook crossWorldFrom = null;
-    /** Indicates that this PlayerMoveEvent has no movement change (FROM and TO have the same position), because of the client re-sending a position packet on right-clicking (effectively duplicating the move). */
+    /** Indicate there was a duplicate move */
     public boolean lastMoveNoMove = false;
 
     // *----------Vehicles----------*
     /** Inconsistency-flag. Set on moving inside of vehicles, reset on exiting properly. Workaround for VehicleLeaveEvent missing. */
     public boolean wasInVehicle = false; 
-    /** on 1.19.4+, skip the first PlayerMoveEvent fired after exiting a minecart. */
     public boolean vehicleLeave = false;
     /** TODO: */
     public EntityType lastVehicleType = null;
     /** Set to indicate that events happen during a vehicle set back. Allows skipping some resetting. */
     public boolean isVehicleSetBack = false;
-    /** TODO:  */
+    /** TODO: Movement consistency */
     public MoveConsistency vehicleConsistency = MoveConsistency.INCONSISTENT;
     /** TODO: */
     public final DefaultSetBackStorage vehicleSetBacks = new DefaultSetBackStorage();
@@ -302,6 +319,27 @@ public class MovingData extends ACheckData implements IDataOnRemoveSubCheckData,
         trace = new LocationTrace(config.traceMaxAge, config.traceMaxSize, NCPAPIProvider.getNoCheatPlusAPI().getGenericInstance(TraceEntryPool.class));
         // A new set of workaround conters.
         ws = NCPAPIProvider.getNoCheatPlusAPI().getGenericInstance(WRPT.class).getWorkaroundSet(WRPT.WS_MOVING);
+    }
+    
+
+    /**
+     * Tick counters to be adjusted after having checked horizontal speed in Sf.
+     */
+    public void setHorDataExPost() {
+        // Decrease bhop tick after checking
+        if (momentumTick > 0) {
+            momentumTick-- ;
+        }
+
+        // Count down for the soul speed enchant motion
+        if (keepfrictiontick > 0) {
+            keepfrictiontick-- ;
+        }
+
+        // A special(model) move from CreativeFly has been turned to a normal move again, count up for the incoming motion
+        if (keepfrictiontick < 0) {
+            keepfrictiontick++ ;
+        }
     }
 
 
@@ -330,23 +368,28 @@ public class MovingData extends ACheckData implements IDataOnRemoveSubCheckData,
      */
     public void clearFlyData() {
         playerMoves.invalidate();
-        jumpDelay = 0;
+        bunnyhopDelay = 0;
         sfJumpPhase = 0;
         jumpAmplifier = 0;
         setBack = null;
+        sfZeroVdistRepeat = 0;
+        clearAccounting();
+        clearHAccounting();
         clearNoFallData();
         removeAllPlayerSpeedModifiers();
-        clearWindChargeImpulse();
+        lostSprintCount = 0;
         sfHoverTicks = sfHoverLoginTicks = -1;
         sfDirty = false;
+        sfLowJump = false;
         liftOffEnvelope = defaultLiftOffEnvelope;
+        insideMediumCount = 0;
         vehicleConsistency = MoveConsistency.INCONSISTENT;
+        lastFrictionHorizontal = lastFrictionVertical = 0.0;
         verticalBounce = null;
         blockChangeRef.valid = false;
-        // Set to 1.0 to prevent any unintentional / by 0. These are mainly used within multiplication or division operations anyway.
-        lastFrictionVertical = lastStuckInBlockVertical = lastStuckInBlockHorizontal = 1.0;
-        lastFrictionHorizontal = lastBlockSpeedMultiplier = 1.0f;
-        lastInertia = 0.0f;
+        momentumTick = 0;
+        liqtick = 0;
+        insideBubbleStreamCount = 0;
     }
 
 
@@ -358,30 +401,34 @@ public class MovingData extends ACheckData implements IDataOnRemoveSubCheckData,
      * 
      * @param setBack
      */
-    public void onSetBack(final PlayerLocation setBack, final Location loc, final MovingConfig cc, final Player player) {
+    public void onSetBack(final PlayerLocation setBack) {
         // Reset positions (a teleport should follow, though).
         this.morePacketsSetback = null;
+        clearAccounting(); // Might be more safe to do this.
         // Keep no-fall data.
         // Fly data: problem is we don't remember the settings for the set back location.
         // Assume the player to start falling from there rather, or be on ground.
         // TODO: Check if to adjust some counters to state before setback? 
         // Keep jump amplifier
+        // Keep bunny-hop delay. Harsher on bunnyhop cheats.
         // keep jump phase.
+        // Keep hAcc ?
+        lostSprintCount = 0;
         sfHoverTicks = -1; // 0 ?
         sfDirty = false;
+        sfLowJump = false;
         liftOffEnvelope = defaultLiftOffEnvelope;
+        insideMediumCount = 0;
+        insideBubbleStreamCount = 0;
         removeAllPlayerSpeedModifiers();
         vehicleConsistency = MoveConsistency.INCONSISTENT; // Not entirely sure here.
+        lastFrictionHorizontal = lastFrictionVertical = 0.0;
         verticalBounce = null;
         timeSinceSetBack = 0;
-        lastFrictionVertical = lastStuckInBlockVertical = lastStuckInBlockHorizontal = 1.0;
-        lastFrictionHorizontal = lastBlockSpeedMultiplier =  1.0f;
-        lastInertia = 0.0f;
         lastSetBackHash = setBack == null ? 0 : setBack.hashCode();
         // Reset to setBack.
         resetPlayerPositions(setBack);
-        adjustLiftOffEnvelope(setBack);
-        adjustMediumProperties(loc, cc, player, playerMoves.getCurrentMove());
+        adjustMediumProperties(setBack);
         // Only setSetBack if no set back location is there.
         if (setBack == null) {
             setSetBack(setBack);
@@ -396,7 +443,10 @@ public class MovingData extends ACheckData implements IDataOnRemoveSubCheckData,
     public void prepareSetBack(final Location loc) {
         playerMoves.invalidate();
         vehicleMoves.invalidate();
+        clearAccounting();
+        clearHAccounting();
         sfJumpPhase = 0;
+        sfZeroVdistRepeat = 0;
         verticalBounce = null;
         // Remember where we send the player to.
         setTeleported(loc);
@@ -405,59 +455,104 @@ public class MovingData extends ACheckData implements IDataOnRemoveSubCheckData,
 
 
     /**
-     * Adjust medium properties according to the medium.
-     * @param loc
-     * @param cc
-     * @param player
+     * Set data.nextFriction according to media.
+     * @param thisMove
      */
-    public void adjustMediumProperties(final Location loc, final MovingConfig cc, final Player player, final PlayerMoveData thisMove) {
-        nextFrictionHorizontal = BlockProperties.getHorizontalFrictionFactor(player, loc, cc.yOnGround, thisMove);
-        nextStuckInBlockHorizontal = BlockProperties.getStuckInBlockHorizontalFactor(player, loc, cc.yOnGround, thisMove);
-        nextBlockSpeedMultiplier = MathUtil.lerp(attributeAccess.getHandle().getMovementEfficiency(player), BlockProperties.getBlockSpeedFactor(player, loc, cc.yOnGround, thisMove), 1.0f);
-        nextFrictionVertical = BlockProperties.getVerticalFrictionFactor(player, loc, cc.yOnGround, thisMove);
-        nextStuckInBlockVertical = BlockProperties.getStuckInBlockVerticalFactor(player, loc, cc.yOnGround, thisMove);
-    }
-    
-    /**
-     * Resets horizontal movement data for the player.
-     * Sets movement distances and impulses to their default (zero or none) values.
-     */
-    public void resetHorizontalData() {
-        final PlayerMoveData thisMove = playerMoves.getCurrentMove();
-        thisMove.xAllowedDistance = 0.0;
-        thisMove.zAllowedDistance = 0.0;
-        thisMove.hAllowedDistance = 0.0;
-        thisMove.hasImpulse = AlmostBoolean.NO;
-        thisMove.strafeImpulse = InputDirection.StrafeDirection.NONE;
-        thisMove.forwardImpulse = InputDirection.ForwardDirection.NONE;
+    public void setNextFriction(final PlayerMoveData thisMove) {
+
+        // NOTE: Other methods might still override nextFriction to 1.0 due to burst/lift-off envelope.
+        // TODO: Other media / medium transitions / friction by block.
+        final LocationData from = thisMove.from;
+        final LocationData to = thisMove.to;
+
+        if (from.inWeb || to.inWeb) {
+            nextFrictionHorizontal = nextFrictionVertical = 0.0;
+        }
+        else if (from.inPowderSnow || to.inPowderSnow) {
+            nextFrictionHorizontal = nextFrictionVertical = 0.0;
+        }
+        // No from#onClimbable check to fix vines fps casue by medium counts, probably wrong place! 
+        else if (to.onClimbable) {
+            // TODO: Not sure about horizontal (!).
+            nextFrictionHorizontal = nextFrictionVertical = 0.0;
+        }
+        else if (to.onHoneyBlock || to.onHoneyBlock) {
+            nextFrictionHorizontal = nextFrictionVertical = 0.0;
+        }
+        else if (from.inBerryBush || to.inBerryBush) {
+            nextFrictionHorizontal = 0.0;
+            nextFrictionVertical = Magic.FRICTION_MEDIUM_BERRY_BUSH;
+        }
+        else if (from.inLiquid) {
+            // TODO: Exact conditions ?!
+            if (from.inLava) {
+                nextFrictionHorizontal = nextFrictionVertical = Magic.FRICTION_MEDIUM_LAVA;
+            }
+            else {
+                nextFrictionHorizontal = nextFrictionVertical = Magic.FRICTION_MEDIUM_WATER;
+            }
+        }
+        else if (Magic.touchedIce(thisMove)) {
+            nextFrictionHorizontal = nextFrictionVertical = Magic.FRICTION_MEDIUM_AIR;
+        }
+        // TODO: consider setting minimum friction last (air), do add ground friction.
+        else if (!from.onGround && !to.onGround) {
+            nextFrictionHorizontal = nextFrictionVertical = Magic.FRICTION_MEDIUM_AIR;
+        }
+        else {
+            nextFrictionHorizontal = 0.0;
+            nextFrictionVertical = Magic.FRICTION_MEDIUM_AIR;
+        }
     }
 
 
     /**
-     * Adjust lift off envelope for the player, called on set back and
+     * Adjust properties that relate to the medium, called on set back and
      * similar. <br>
+     * Currently: liftOffEnvelope, nextFriction.
+     * 
      * @param loc
      */
-    public void adjustLiftOffEnvelope(final PlayerLocation loc) {
+    public void adjustMediumProperties(final PlayerLocation loc) {
         // Ensure block flags have been collected.
         loc.collectBlockFlags();
         // Simplified.
         if (loc.isInWeb()) {
-            liftOffEnvelope = LiftOffEnvelope.LIMIT_WEBS;
+            liftOffEnvelope = LiftOffEnvelope.NO_JUMP;
+            nextFrictionHorizontal = nextFrictionVertical = 0.0;
         }
         else if (loc.isInBerryBush()) {
-            liftOffEnvelope = LiftOffEnvelope.LIMIT_SWEET_BERRY;
+            liftOffEnvelope = LiftOffEnvelope.BERRY_JUMP;
+            nextFrictionHorizontal = 0.0;
+            nextFrictionVertical = Magic.FRICTION_MEDIUM_BERRY_BUSH;
         }
         else if (loc.isInPowderSnow()) {
-            liftOffEnvelope = LiftOffEnvelope.LIMIT_POWDER_SNOW;
+            liftOffEnvelope = LiftOffEnvelope.POWDER_SNOW;
+            nextFrictionHorizontal = nextFrictionVertical = 0.0;
         }
         else if (loc.isOnHoneyBlock()) {
-            liftOffEnvelope = LiftOffEnvelope.LIMIT_HONEY_BLOCK;
+            liftOffEnvelope = LiftOffEnvelope.HALF_JUMP;
+            nextFrictionHorizontal = nextFrictionVertical = 0.0;
+        }
+        else if (loc.isInLiquid()) {
+            // TODO: Distinguish strong limit.
+            liftOffEnvelope = LiftOffEnvelope.LIMIT_LIQUID;
+            if (loc.isInLava()) {
+                nextFrictionHorizontal = nextFrictionVertical = Magic.FRICTION_MEDIUM_LAVA;
+            } 
+            else {
+                nextFrictionHorizontal = nextFrictionVertical = Magic.FRICTION_MEDIUM_WATER;
+            }
         }
         else if (loc.isOnGround()) {
             liftOffEnvelope = LiftOffEnvelope.NORMAL;
+            nextFrictionHorizontal = nextFrictionVertical = Magic.FRICTION_MEDIUM_AIR;
         }
-        else liftOffEnvelope = LiftOffEnvelope.UNKNOWN;
+        else {
+            liftOffEnvelope = LiftOffEnvelope.UNKNOWN;
+            nextFrictionHorizontal = nextFrictionVertical = Magic.FRICTION_MEDIUM_AIR;
+        }
+        insideMediumCount = 0;
     }
 
 
@@ -492,14 +587,14 @@ public class MovingData extends ACheckData implements IDataOnRemoveSubCheckData,
      */
     private void resetPlayerPositions() {
         playerMoves.invalidate();
+        sfZeroVdistRepeat = 0;
         sfDirty = false;
+        sfLowJump = false;
         liftOffEnvelope = defaultLiftOffEnvelope;
+        insideMediumCount = 0;
+        lastFrictionHorizontal = lastFrictionVertical = 0.0;
         verticalBounce = null;
         blockChangeRef.valid = false;
-        lastFrictionVertical = lastStuckInBlockVertical = lastStuckInBlockHorizontal = 1.0;
-        lastFrictionHorizontal = 0.6f;
-        lastBlockSpeedMultiplier = 1.0f;
-        lastInertia = 0.0f;
         // TODO: other buffers ?
         // No reset of vehicleConsistency.
     }
@@ -521,6 +616,22 @@ public class MovingData extends ACheckData implements IDataOnRemoveSubCheckData,
             lastMove.vehicleId = entity.getUniqueId();
             lastMove.vehicleType = entity.getType();
         }
+    }
+
+
+    /**
+     * Clear accounting data.
+     */
+    public void clearAccounting() {
+        vDistAcc.clear();
+    }
+
+
+    /**
+     * Clear hacc
+     */
+    public void clearHAccounting() {
+        hDistAcc.clear();
     }
 
 
@@ -562,7 +673,7 @@ public class MovingData extends ACheckData implements IDataOnRemoveSubCheckData,
 
 
     /**
-     * Clear the data of the NoFall check.
+     * Clear the data of the new fall check.
      */
     public void clearNoFallData() {
         noFallFallDistance = 0;
@@ -633,8 +744,8 @@ public class MovingData extends ACheckData implements IDataOnRemoveSubCheckData,
      * Get the set back location with yaw and pitch set from the given
      * arguments.
      * 
-     * @param yaw
-     * @param pitch
+     * @param refYaw
+     * @param refPitch
      * @return
      */
     public Location getSetBack(final float yaw, final float pitch) {
@@ -732,7 +843,7 @@ public class MovingData extends ACheckData implements IDataOnRemoveSubCheckData,
      * lenient than isTeleported, because world and yaw and pitch are all
      * ignored.
      * 
-     * @param pos
+     * @param loc
      * @return In case of either loc or teleported being null, false is
      *         returned, otherwise TrigUtil.isSamePos(pos, teleported).
      */
@@ -821,6 +932,8 @@ public class MovingData extends ACheckData implements IDataOnRemoveSubCheckData,
         // Elytra boost best fits velocity / effects.
         fireworksBoostDuration = 0; 
         fireworksBoostTickExpire = 0;
+        // Horizontal buffer.
+        sfHorizontalBuffer = 0.0;
     }
     
 
@@ -832,6 +945,7 @@ public class MovingData extends ACheckData implements IDataOnRemoveSubCheckData,
      * Add velocity to internal book-keeping.
      * 
      * @param player
+     * @param data
      * @param cc
      * @param vx
      * @param vy
@@ -842,7 +956,7 @@ public class MovingData extends ACheckData implements IDataOnRemoveSubCheckData,
     public void addVelocity(final Player player, final MovingConfig cc, final double vx, final double vy, final double vz, final long flags) {
         final int tick = TickTask.getTick();
         // TODO: Slightly odd to call this each time, might switch to a counter-strategy (move - remove). 
-        removeInvalidVelocity(tick - cc.velocityActivationTicks);
+        removeInvalidVelocity(tick  - cc.velocityActivationTicks);
 
         if (pData.isDebugActive(CheckType.MOVING)) {
             CheckUtils.debug(player, CheckType.MOVING, " New velocity: " + vx + ", " + vy + ", " + vz);
@@ -853,11 +967,13 @@ public class MovingData extends ACheckData implements IDataOnRemoveSubCheckData,
 
         // TODO: Should also switch to adding always.
         if (vx != 0.0 || vz != 0.0) {
-            horVel.add(new PairEntry(tick, vx, vz, cc.velocityActivationCounter));
+            final double newVal = Math.sqrt(vx * vx + vz * vz);
+            horVel.add(new AccountEntry(tick, newVal, cc.velocityActivationCounter, getHorVelValCount(newVal)));
         }
 
         // Set dirty flag here.
         sfDirty = true; // TODO: Set on using the velocity, due to latency !
+        sfNoLowJump = true; // TODO: Set on using the velocity, due to latency !
     }
 
 
@@ -875,6 +991,7 @@ public class MovingData extends ACheckData implements IDataOnRemoveSubCheckData,
      * Add velocity to internal book-keeping.
      * 
      * @param player
+     * @param data
      * @param cc
      * @param vx
      * @param vy
@@ -903,13 +1020,13 @@ public class MovingData extends ACheckData implements IDataOnRemoveSubCheckData,
         // Remove invalid velocity.
         removeInvalidVelocity(invalidateBeforeTick);
 
-        // (Horizontal velocity does not tick.)
-        //horVel.tick();
+        // Horizontal velocity (intermediate concept).
+        horVel.tick();
 
         // (Vertical velocity does not tick.)
 
         // Renew the dirty phase.
-        if (!sfDirty && horVel.hasQueued()) {
+        if (!sfDirty && (horVel.hasActive() || horVel.hasQueued())) {
             sfDirty = true;
         }
     }
@@ -929,7 +1046,7 @@ public class MovingData extends ACheckData implements IDataOnRemoveSubCheckData,
         // TODO: Not sure if this is intentional but the cap would force NCP to always pick 30 for velocity entries smaller than 3.0
         // As a workaround/fix simply increase the actual velocity value
         // See: https://github.com/NoCheatPlus/NoCheatPlus/commit/a5ed7805429c73f8f2fec409c1947fb032210833
-        return Math.max(30, 1 + (int) Math.round(velocity * 10.0)); // (Revert to 10 due to the hSpeed recode)
+        return Math.max(30, 1 + (int) Math.round(velocity * 50.0));
     }
     
 
@@ -939,7 +1056,7 @@ public class MovingData extends ACheckData implements IDataOnRemoveSubCheckData,
      * @param vel
      *            Assumes positive values always.
      */
-    public void addHorizontalVelocity(final PairEntry vel) {
+    public void addHorizontalVelocity(final AccountEntry vel) {
         horVel.add(vel);
     }
 
@@ -947,9 +1064,9 @@ public class MovingData extends ACheckData implements IDataOnRemoveSubCheckData,
     /**
      * Clear only active horizontal velocity.
      */
-    //public void clearActiveHorVel() {
-    //    horVel.clearActive();
-    //}
+    public void clearActiveHorVel() {
+        horVel.clearActive();
+    }
 
 
     /**
@@ -963,35 +1080,35 @@ public class MovingData extends ACheckData implements IDataOnRemoveSubCheckData,
    /**
     * Test if the player has active horizontal velocity
     */
-    //public boolean hasActiveHorVel() {
-    //    return horVel.hasActive();
-    //}
+    public boolean hasActiveHorVel() {
+        return horVel.hasActive();
+    }
 
 
     /**
      * Test if the player has horizontal velocity entries in queue.
      * @return
      */
-    //public boolean hasQueuedHorVel() {
-    //    return horVel.hasQueued();
-    //}
+    public boolean hasQueuedHorVel() {
+        return horVel.hasQueued();
+    }
 
 
     /**
      * Test if the player has any horizontal velocity entry at all (active and queued)
      */
-    //public boolean hasAnyHorVel() {
-    //    return horVel.hasAny();
-    //}
+    public boolean hasAnyHorVel() {
+        return horVel.hasAny();
+    }
 
 
     /**
      * Get effective amount of all used velocity. Non-destructive.
      * @return
      */
-    //public double getHorizontalFreedom() {
-    //    return horVel.getFreedom();
-    //}
+    public double getHorizontalFreedom() {
+        return horVel.getFreedom();
+    }
 
 
     /**
@@ -999,13 +1116,12 @@ public class MovingData extends ACheckData implements IDataOnRemoveSubCheckData,
      * Amount is the horizontal distance that is to be covered by velocity (active has already been checked).
      * <br>
      * If the modeling changes (max instead of sum or similar), then this will be affected.
-     * @param x The amount demanded, must be positive.
-     * @param z
+     * @param amount The amount demanded, must be positive.
      * @return
      */
-    public List<PairEntry> useHorizontalVelocity(final double x, final double z) {
-        final List<PairEntry> available = horVel.use(x, z, 0.001);
-        if (!available.isEmpty()) {
+    public double useHorizontalVelocity(final double amount) {
+        final double available = horVel.use(amount);
+        if (available >= amount) {
             sfDirty = true;
         }
         return available;
@@ -1017,7 +1133,7 @@ public class MovingData extends ACheckData implements IDataOnRemoveSubCheckData,
      * 
      * @return
      */
-    public PairAxisVelocity getHorizontalVelocityTracker() {
+    public FrictionAxisVelocity getHorizontalVelocityTracker() {
         return horVel;
     }
 
@@ -1027,10 +1143,10 @@ public class MovingData extends ACheckData implements IDataOnRemoveSubCheckData,
      * @param builder
      */
     public void addHorizontalVelocity(final StringBuilder builder) {
-        //if (horVel.hasActive()) {
-        //    builder.append("\n" + " Horizontal velocity (active):");
-        //    horVel.addActive(builder);
-        //}
+        if (horVel.hasActive()) {
+            builder.append("\n" + " Horizontal velocity (active):");
+            horVel.addActive(builder);
+        }
         if (horVel.hasQueued()) {
             builder.append("\n" + " Horizontal velocity (queued):");
             horVel.addQueued(builder);
@@ -1062,8 +1178,8 @@ public class MovingData extends ACheckData implements IDataOnRemoveSubCheckData,
      * @param maxActCount
      * @return
      */
-    public List<SimpleEntry> peekVerticalVelocity(final double amount, final int minActCount, final int maxActCount) {
-        return verVel.peek(amount, minActCount, maxActCount, Magic.PREDICTION_EPSILON);
+    public SimpleEntry peekVerticalVelocity(final double amount, final int minActCount, final int maxActCount) {
+        return verVel.peek(amount, minActCount, maxActCount, TOL_VVEL);
     }
 
 
@@ -1093,11 +1209,12 @@ public class MovingData extends ACheckData implements IDataOnRemoveSubCheckData,
      * @param amount
      * @return
      */
-    public List<SimpleEntry> useVerticalVelocity(final double amount) {
-        final List<SimpleEntry> available = verVel.use(amount, Magic.PREDICTION_EPSILON);
+    public SimpleEntry useVerticalVelocity(final double amount) {
+        final SimpleEntry available = verVel.use(amount, TOL_VVEL);
         if (available != null) {
             playerMoves.getCurrentMove().verVelUsed = available;
             sfDirty = true;
+            // TODO: Consider sfNoLowJump = true;
         }
         return available;
     }
@@ -1110,14 +1227,12 @@ public class MovingData extends ACheckData implements IDataOnRemoveSubCheckData,
      * @param amount
      * @return
      */
-    public List<SimpleEntry> getOrUseVerticalVelocity(final double amount) {
-        final List<SimpleEntry> verVelUsed = playerMoves.getCurrentMove().verVelUsed;
-        if (!verVelUsed.isEmpty()) {
-            double sum = 0;
-            for (SimpleEntry entry : verVelUsed) {
-                sum += entry.value;
+    public SimpleEntry getOrUseVerticalVelocity(final double amount) {
+        final SimpleEntry verVelUsed = playerMoves.getCurrentMove().verVelUsed;
+        if (verVelUsed != null) {
+            if (verVel.matchesEntry(verVelUsed, amount, TOL_VVEL)) {
+                return verVelUsed;
             }
-            if (Math.abs(sum - amount) < Magic.PREDICTION_EPSILON) return verVelUsed;
         }
         return useVerticalVelocity(amount);
     }
@@ -1171,24 +1286,19 @@ public class MovingData extends ACheckData implements IDataOnRemoveSubCheckData,
 
 
     public void adjustWalkSpeed(final float walkSpeed, final int tick, final int speedGrace) {
-        if (this.walkSpeed == 0f) {
+        if (walkSpeed > this.walkSpeed) {
             this.walkSpeed = walkSpeed;
+            this.speedTick = tick;
+        } 
+        else if (walkSpeed < this.walkSpeed) {
+            if (tick - this.speedTick > speedGrace) {
+                this.walkSpeed = walkSpeed;
+                this.speedTick = tick;
+            }
+        } 
+        else {
+            this.speedTick = tick;
         }
-        else this.walkSpeed = this.nextWalkSpeed;
-        this.nextWalkSpeed = walkSpeed;
-        //if (walkSpeed > this.walkSpeed) {
-        //    this.walkSpeed = walkSpeed;
-        //    this.speedTick = tick;
-        //} 
-        //else if (walkSpeed < this.walkSpeed) {
-        //    if (tick - this.speedTick > speedGrace) {
-        //        this.walkSpeed = walkSpeed;
-        //        this.speedTick = tick;
-        //    }
-        //} 
-        //else {
-        //    this.speedTick = tick;
-        //}
     }
 
 
@@ -1281,12 +1391,10 @@ public class MovingData extends ACheckData implements IDataOnRemoveSubCheckData,
 
     /**
      * Convenience: Create or just reset the trace, add the current location.
-     * @param player 
-     * @param loc
-     * @param time
-     * @param maxAge
-     * @param maxSize
-     * @param iead
+     * @param loc 
+     * @param size
+     * @param mergeDist
+     * @param traceMergeDist 
      */
     public void resetTrace(final Player player, final Location loc, final long time, final int maxAge, final int maxSize, final IEntityAccessDimensions iead) {
         if (trace != null) {
@@ -1295,6 +1403,79 @@ public class MovingData extends ACheckData implements IDataOnRemoveSubCheckData,
         getTrace(maxAge, maxSize).addEntry(time, loc.getX(), loc.getY(), loc.getZ(), 
                 iead.getWidth(player) / 2.0, Math.max(player.getEyeHeight(), iead.getHeight(player)));
     }
+
+
+    /**
+     * Test if velocity has affected the in-air jumping phase. Keeps set until
+     * reset on-ground or otherwise. Use clearActiveVerVel to force end velocity
+     * jump phase. Use hasAnyVerVel() to test if active or queued vertical
+     * velocity should still be able to influence the in-air jump phase.
+     * 
+     * @return
+     */
+    public boolean isVelocityJumpPhase() {
+        return sfDirty;
+    }
+
+
+    /**
+     * Refactoring stage: Test which value sfDirty should have and set
+     * accordingly. This should only be called, if the player reached ground.
+     * 
+     * @return If the velocity jump phase is still active (sfDirty).
+     */
+    public boolean resetVelocityJumpPhase() {
+        return resetVelocityJumpPhase(null);
+    }
+
+
+    /**
+     * See {@link #resetVelocityJumpPhase()}.
+     * @param tags
+     * @return
+     */
+    public boolean resetVelocityJumpPhase(final Collection<String> tags) {
+        if (horVel.hasActive() || horVel.hasQueued() 
+            || sfDirty && shouldRetainSFDirty(tags)) {
+            // TODO: What with vertical ?
+            return sfDirty = true;
+        }
+        else {
+            return sfDirty = false;
+        }
+    }
+
+
+    private final boolean shouldRetainSFDirty(final Collection<String> tags) {
+        final PlayerMoveData thisMove = playerMoves.getLatestValidMove();
+
+        if (thisMove == null || !thisMove.toIsValid || thisMove.yDistance >= 0.0) {
+
+            final SimpleEntry entry = verVel.peek(thisMove == null ? 0.05 : thisMove.yDistance, 0, 4, 0.0);
+            if (entry != null && entry.hasFlag(VelocityFlags.ORIGIN_BLOCK_BOUNCE)
+                || thisMove != null && thisMove.verVelUsed != null 
+                && thisMove.verVelUsed.hasFlag(VelocityFlags.ORIGIN_BLOCK_BOUNCE)) {
+
+                // TODO: Strictly, pastground_from/to should rather be skipped instead of this.
+                if (tags != null) {
+                    tags.add("retain_dirty_bounce"); // +- block/push
+                }
+                return true;
+            }
+        }
+        return false;
+    }
+
+
+    /**
+     * Force set the move to be affected by previous speed. Currently
+     * implemented as setting velocity jump phase.
+     */
+    public void setFrictionJumpPhase() {
+        // TODO: Better and more reliable modeling.
+        sfDirty = true;
+    }
+
 
     public void useVerticalBounce(final Player player) {
         // CHEATING: Ensure fall distance is reset.
@@ -1309,8 +1490,11 @@ public class MovingData extends ACheckData implements IDataOnRemoveSubCheckData,
 
     public void handleTimeRanBackwards() {
         final long time = System.currentTimeMillis();
+        timeSprinting = Math.min(timeSprinting, time);
         timeRiptiding = Math.min(timeRiptiding, time);
+        delayWorkaround = Math.min(delayWorkaround, time);
         vehicleMorePacketsLastTime = Math.min(vehicleMorePacketsLastTime, time);
+        clearAccounting(); // Not sure: adding up might not be nice.
         removeAllPlayerSpeedModifiers(); // TODO: This likely leads to problems.
         // (ActionFrequency can handle this.)
     }

@@ -29,9 +29,9 @@ import org.bukkit.Material;
 import org.bukkit.entity.EntityType;
 
 import fr.neatmonster.nocheatplus.compat.AlmostBoolean;
-import fr.neatmonster.nocheatplus.compat.bukkit.BridgeMaterial;
+import fr.neatmonster.nocheatplus.compat.BridgeMaterial;
 import fr.neatmonster.nocheatplus.logging.StaticLog;
-import fr.neatmonster.nocheatplus.utilities.entity.InventoryUtil;
+import fr.neatmonster.nocheatplus.utilities.InventoryUtil;
 import fr.neatmonster.nocheatplus.utilities.StringUtil;
 
 /**
@@ -50,11 +50,11 @@ public class MaterialUtil {
     ///////////////////////
 
     private static final List<String> woodTypes = Arrays.asList(
-            "acacia", "birch", "dark_oak", "jungle", "oak", "spruce", "warped", "crimson", "mangrove", "bamboo", "cherry", "pale",
-            "wood"// Legacy
+            "acacia", "birch", "dark_oak", "jungle", "oak", "spruce", "warped", "crimson", "mangrove", "bamboo", "cherry",
+            "wood" // Legacy
             );
 
-    private static List<EntityType> collectTypesBySuffix(String prefix) {
+    private final static List<EntityType> collectTypesBySuffix(String prefix) {
         prefix = prefix.toLowerCase();
         final List<EntityType> res = new LinkedList<EntityType>();
         for (final EntityType type : EntityType.values()) {
@@ -144,7 +144,9 @@ public class MaterialUtil {
                         StringUtil.join(set, ", ", builder);
                         builder.append('\n');
                     }
-                } catch (IllegalArgumentException | IllegalAccessException e) {}
+                } catch (IllegalArgumentException e) {
+                } catch (IllegalAccessException e) {
+                }
             }
         }
         StaticLog.log(level, builder.toString());
@@ -154,9 +156,9 @@ public class MaterialUtil {
     // Material collections with common properties
     // (May not always have all aspects in common.)
     /////////////////////////////////////////////////
-	public static final Set<Material> ALL_CAULDRONS = Collections.unmodifiableSet(BridgeMaterial.getBySuffix("cauldron", AlmostBoolean.YES, "legacy"));
 
-    public static final Set<Material> ALL_BUTTONS = Collections.unmodifiableSet(BridgeMaterial.getBySuffix("_button", AlmostBoolean.YES, "legacy"));
+    public static final Set<Material> ALL_BUTTONS = Collections.unmodifiableSet(
+            BridgeMaterial.getBySuffix("_button", AlmostBoolean.YES, "legacy"));
 
     public static final Set<Material> ALL_DOORS = Collections.unmodifiableSet(
             BridgeMaterial.getByPrefixAndSuffix(
@@ -193,9 +195,6 @@ public class MaterialUtil {
 
     public static final Set<Material> ALL_STAIRS = Collections.unmodifiableSet(
             BridgeMaterial.getBySuffix("_stairs", AlmostBoolean.YES, "legacy"));
-
-    public static final Set<Material> ALL_SWORDS = Collections.unmodifiableSet(
-            BridgeMaterial.getBySuffix("_sword", AlmostBoolean.YES, "legacy"));
 
     public static final Set<Material> ALL_TRAP_DOORS = Collections.unmodifiableSet(
             BridgeMaterial.getByPrefixAndSuffix(
@@ -243,8 +242,8 @@ public class MaterialUtil {
         ALL_SEEDS = Collections.unmodifiableSet(seedsTemp);
     }
 
-    private static final List<EntityType> BOATS_TYPE = collectTypesBySuffix("BOAT");
-    
+    private static final List<EntityType> BOATSTYPE = collectTypesBySuffix("BOAT");
+
     public static final Set<Material> CARPETS = Collections.unmodifiableSet(addBlocks(
             BridgeMaterial.getBySuffix("_carpet", AlmostBoolean.YES, "legacy"), 
             "carpet"));
@@ -415,7 +414,7 @@ public class MaterialUtil {
             "cobblestone", "mossy_cobblestone",
             "sea_lantern", "redstone_lamp", "glowstone", "sponge", "wet_sponge",
             "budding_amethyst", "amethyst_block",
-            "calcite", "tuff", "moss_block", "rooted_dirt", "dripstone_block", "pale_moss_block"
+            "calcite", "tuff", "moss_block", "rooted_dirt", "dripstone_block"
             ));
 
     public static final Set<Material> WALL_BANNERS = Collections.unmodifiableSet(addBlocks(
@@ -444,10 +443,10 @@ public class MaterialUtil {
     public static final Set<Material> WOODEN_SIGNS = Collections.unmodifiableSet(addBlocks(
             BridgeMaterial.getByPrefixAndSuffix(
                     woodTypes, 
-                    Arrays.asList("_sign"),
+                    Arrays.asList("_sign", "_hanging_sign"),
                     AlmostBoolean.YES
                     // , ...
-                    ), "sign", "wall_sign", "_wall_hanging_sign"));
+                    ), "sign", "wall_sign"));
     
     // These are SOLID
     public static final Set<Material> WALL_HANGING_SIGNS = Collections.unmodifiableSet(
@@ -554,8 +553,7 @@ public class MaterialUtil {
                     "weeping_vines", "weeping_vines_plant",
                     "twisting_vines", "twisting_vines_plant",
                     "mangrove_propagule", "pink_petals", "torchflower", "torchflower_crop",
-                    "pitcher_plant", "open_eyeblossom", "closed_eyeblossom", "pale_hanging_moss", 
-                    "leaf_litter", "cactus_flower", "short_dry_grass", "tall_dry_grass", "wildflowers"
+                    "pitcher_plant"
                     ),
             new HashSet<Material>(Arrays.asList(BridgeMaterial.TALL_GRASS, 
                     BridgeMaterial.WHEAT_CROPS, BridgeMaterial.CARROTS, 
@@ -564,8 +562,7 @@ public class MaterialUtil {
                     BridgeMaterial.SUGAR_CANE, BridgeMaterial.BEETROOTS))
             ));
 
-    @SuppressWarnings("unchecked")
-	public static final Set<Material> FARMABLE = Collections.unmodifiableSet(join(new HashSet<Material>(Arrays.asList(BridgeMaterial.TALL_GRASS, 
+    public static final Set<Material> FARMABLE = Collections.unmodifiableSet(join(new HashSet<Material>(Arrays.asList(BridgeMaterial.TALL_GRASS, 
                     BridgeMaterial.WHEAT_CROPS, BridgeMaterial.CARROTS, 
                     BridgeMaterial.POTATOES, BridgeMaterial.GRASS,
                     Material.PUMPKIN_STEM, Material.MELON_STEM,
@@ -573,7 +570,7 @@ public class MaterialUtil {
                 WATER_PLANTS,
                     BridgeMaterial.getAllBlocks("peony", "sunflower", "lilac", "rose_bush", "sweet_berry_bush", 
                                                 "cocoa", "double_plant", "fern", "large_fern", "attached_melon_stem", 
-                                                "attached_pumpkin_stem", "bamboo", "bamboo_sapling", "wildflowers", "pink_petals", "mangrove_propagule")
+                                                "attached_pumpkin_stem", "bamboo", "bamboo_sapling")
 
 
 ));
@@ -638,20 +635,9 @@ public class MaterialUtil {
             DEAD_CORAL_PARTS, WATER_PLANTS
             ));
 
-
     ////////////////////
     // Access methods.
     ////////////////////
-    
-    /**
-     * Test if the material is a sword
-     * 
-     * @param mat
-     * @return
-     */
-    public static boolean isSword(final Material mat) {
-        return ALL_SWORDS.contains(mat);
-    }
 
     /**
      * Test if the material is a boat.
@@ -711,7 +697,7 @@ public class MaterialUtil {
      * @return 
      */
     public static boolean isBoat(final EntityType entity) {
-        return BOATS_TYPE.contains(entity);
+        return BOATSTYPE.contains(entity);
     }
     
     /**
@@ -726,7 +712,7 @@ public class MaterialUtil {
     }
     
     /**
-     * Check if the material is a sign of any kind (normal, post, wall, hanging, wall hanging)
+     * Check if is the material is a sign of any kind (normal(post, wall, hanging, wall hanging)
      * 
      * @param mat
      * @return 

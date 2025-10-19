@@ -29,16 +29,16 @@ public class BukkitDripLeaf implements BukkitShapeModel {
         final BlockData blockData = block.getState().getBlockData();
         double[] res = {0.0, 0.6875, 0.0, 1.0, 0.9375, 1.0};
         if (blockData instanceof BigDripleaf) {
-            final BigDripleaf dripLeaf = (BigDripleaf) blockData;
-            switch(dripLeaf.getTilt()) {
-                case PARTIAL:
-                    res[4] -= 0.125;
-                    return res;
-                case NONE:
-                case UNSTABLE:
-                    return res;
-                default:
-                    return new double[]{0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+            final BigDripleaf dripleaf = (BigDripleaf) blockData;
+            switch(dripleaf.getTilt()) {
+            case PARTIAL:
+                res[4] -= 0.125;
+                return res;
+            case UNSTABLE:
+            case NONE:
+                return res;
+            default:
+                break;
             }
         }
         return null;
@@ -48,4 +48,5 @@ public class BukkitDripLeaf implements BukkitShapeModel {
     public int getFakeData(BlockCache blockCache, World world, int x, int y, int z) {
         return 0;
     }
+
 }

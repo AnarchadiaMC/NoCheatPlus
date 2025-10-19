@@ -17,11 +17,13 @@ package fr.neatmonster.nocheatplus.compat.registry;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 
 import fr.neatmonster.nocheatplus.NCPAPIProvider;
 import fr.neatmonster.nocheatplus.NoCheatPlus;
+import fr.neatmonster.nocheatplus.checks.inventory.FastConsume;
 import fr.neatmonster.nocheatplus.checks.inventory.Gutenberg;
 import fr.neatmonster.nocheatplus.checks.inventory.HotFixFallingBlockPortalEnter;
 import fr.neatmonster.nocheatplus.checks.net.protocollib.ProtocolLibComponent;
@@ -37,7 +39,7 @@ import fr.neatmonster.nocheatplus.utilities.StringUtil;
 /**
  * Default factory for add-in components which might only be available under certain circumstances.
  * 
- * @author asofold
+ * @author mc_dev
  */
 public class DefaultComponentFactory {
 
@@ -159,6 +161,27 @@ public class DefaultComponentFactory {
 
         // Add components (try-catch).
         // TODO: catch ClassNotFound, incompatibleXY rather !?
+
+        // Check: inventory.fastconsume.
+        try{
+            // TODO: Static test methods !?
+            FastConsume.testAvailability();
+            available.add(new FastConsume());
+            NCPAPIProvider.getNoCheatPlusAPI().addFeatureTags("checks", Collections.singletonList(FastConsume.class.getSimpleName()));
+        }
+        catch (Throwable t){
+            StaticLog.logInfo("Inventory checks: FastConsume is not available.");
+        }
+
+        // Check: inventory.gutenberg.
+        try {
+            Gutenberg.testAvailability();
+            available.add(new Gutenberg());
+            NCPAPIProvider.getNoCheatPlusAPI().addFeatureTags("checks", Collections.singletonList(Gutenberg.class.getSimpleName()));
+        } catch (Throwable t) {
+            StaticLog.logInfo("Inventory checks: Gutenberg is not available.");
+        }
+
         // Hot fix: falling block end portal.
         try {
             HotFixFallingBlockPortalEnter.testAvailability();

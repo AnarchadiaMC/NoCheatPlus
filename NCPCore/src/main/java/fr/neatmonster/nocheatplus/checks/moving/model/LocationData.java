@@ -36,8 +36,8 @@ public class LocationData implements IGetLocationWithLook {
     /** Must be checked before using any of the flags. */
     public boolean extraPropertiesValid = false;
     /** Basic environmental properties. */
-    public boolean onClimbable, inWeb, inPowderSnow, inSoulSand, inLava, inWater, inLiquid, onGround, onIce, onBlueIce, onSoulSand, onSlimeBlock, inBerryBush, onHoneyBlock, onBouncyBlock, inBubbleStream;
-    /** Aggregate properties (reset means potentially resetting fall damage or other data). */
+    public boolean aboveStairs, onClimbable, inWeb, inPowderSnow, inLava, inWater, inLiquid, onGround, onIce, onBlueIce, onSoulSand, onSlimeBlock, inBerryBush, onHoneyBlock, onBouncyBlock, inBubbleStream, draggedByBubbleStream;
+    /** Aggregate properties (reset means potentially resetting fall damage). */
     public boolean resetCond, onGroundOrResetCond;
 
     /**
@@ -92,7 +92,7 @@ public class LocationData implements IGetLocationWithLook {
         loc.collectBlockFlags(); // Just ensure.
         onClimbable = loc.isOnClimbable();
         inWeb = loc.isInWeb();
-        onSoulSand = loc.isInSoulSand();
+        onSoulSand = loc.isOnSoulSand();
         inLiquid = loc.isInLiquid();
         inBerryBush = loc.isInBerryBush();
         onSlimeBlock = loc.isOnSlimeBlock();
@@ -108,10 +108,15 @@ public class LocationData implements IGetLocationWithLook {
         onGround = loc.isOnGround();
         onIce = loc.isOnIce();
         onBlueIce = loc.isOnBlueIce();
-        resetCond = loc.isResetCond();
+        resetCond = inLiquid || inWeb || onClimbable || inBerryBush || inPowderSnow;
         onBouncyBlock = loc.isOnBouncyBlock();
-        onGroundOrResetCond = loc.isOnGroundOrResetCond();
+        onGroundOrResetCond = onGround || resetCond;
         inBubbleStream = loc.isInBubbleStream();
+        draggedByBubbleStream = loc.isDraggedByBubbleStream();
+        if (!onGround && !resetCond) {
+            aboveStairs = loc.isAboveStairs();
+        }
+        else aboveStairs = false;
         // Set valid flag last.
         extraPropertiesValid = true;
     }
@@ -119,10 +124,11 @@ public class LocationData implements IGetLocationWithLook {
     /**
      * Set extra properties same as the given LocationData instance.
      * 
-     * @param other
+     * @param loc
      */
     public void setExtraProperties(final LocationData other) {
         if (other.extraPropertiesValid) {
+            aboveStairs = other.aboveStairs;
             onClimbable = other.onClimbable;
             inWeb = other.inWeb;
             inLiquid = other.inLiquid;
@@ -131,7 +137,7 @@ public class LocationData implements IGetLocationWithLook {
             onGround = other.onGround;
             onIce = other.onIce;
             onBlueIce = other.onBlueIce;
-            inSoulSand = other.inSoulSand;
+            onSoulSand = other.onSoulSand;
             inBerryBush = other.inBerryBush;
             onSlimeBlock = other.onSlimeBlock;
             onHoneyBlock = other.onHoneyBlock;
@@ -140,6 +146,7 @@ public class LocationData implements IGetLocationWithLook {
             resetCond = other.resetCond;
             onBouncyBlock = other.onBouncyBlock;
             inBubbleStream = other.inBubbleStream;
+            draggedByBubbleStream = other.draggedByBubbleStream;
             onGroundOrResetCond = other.onGroundOrResetCond;
         }
         // Set valid flag last.
@@ -148,6 +155,7 @@ public class LocationData implements IGetLocationWithLook {
 
     public void resetExtraProperties() {
         extraPropertiesValid = false;
+        aboveStairs = false;
         onClimbable = false;
         inWeb = false;
         inLiquid = false;
@@ -164,6 +172,7 @@ public class LocationData implements IGetLocationWithLook {
         resetCond = false;
         onBouncyBlock = false;
         inBubbleStream = false;
+        draggedByBubbleStream = false;
         onGroundOrResetCond = false;
     }
 
@@ -218,5 +227,5 @@ public class LocationData implements IGetLocationWithLook {
     public String toString() {
         return "LocationData(" + worldName + "/" + LocUtil.simpleFormat(this) + ")";
     }
-    
+
 }
