@@ -18,10 +18,6 @@
         https://www.spigotmc.org/resources/protocollib.1997/
     </description>
 
-<<<<<<< HEAD
-
-=======
->>>>>>> parent of e3e574683 (Merge remote-tracking branch 'upstream/master')
     <dependencies>
         <dependency>
             <groupId>org.spigotmc</groupId>
