@@ -40,13 +40,13 @@
         <dependency>
             <groupId>com.viaversion</groupId>
             <artifactId>viaversion-api</artifactId>
-            <version>5.4.2</version>
+            <version>5.5.1</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>net.kyori</groupId>
             <artifactId>adventure-api</artifactId>
-            <version>4.24.0</version>
+            <version>4.25.0</version>
             <scope>compile</scope>
         </dependency>
         <dependency>
@@ -64,7 +64,7 @@
         <dependency>
             <groupId>net.kyori</groupId>
             <artifactId>adventure-text-serializer-plain</artifactId>
-            <version>4.24.0</version>
+            <version>4.25.0</version>
             <scope>compile</scope>
         </dependency>
     </dependencies>
