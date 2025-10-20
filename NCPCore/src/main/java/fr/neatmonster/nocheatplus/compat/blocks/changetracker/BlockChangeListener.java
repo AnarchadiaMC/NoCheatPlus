@@ -51,6 +51,12 @@ import fr.neatmonster.nocheatplus.utilities.map.BlockProperties;
 import fr.neatmonster.nocheatplus.utilities.map.BlockFlags;
 import fr.neatmonster.nocheatplus.utilities.map.BlockProperties.ToolProps;
 import fr.neatmonster.nocheatplus.utilities.map.BlockProperties.ToolType;
+import fr.neatmonster.nocheatplus.compat.blocks.changetracker.eventdata.BlockFormEventData;
+import fr.neatmonster.nocheatplus.compat.blocks.changetracker.eventdata.DeferredBlockEvent;
+import fr.neatmonster.nocheatplus.compat.blocks.changetracker.eventdata.EntityChangeBlockEventData;
+import fr.neatmonster.nocheatplus.compat.blocks.changetracker.eventdata.PistonExtendEventData;
+import fr.neatmonster.nocheatplus.compat.blocks.changetracker.eventdata.PistonRetractEventData;
+import fr.neatmonster.nocheatplus.compat.blocks.changetracker.eventdata.RedstoneEventData;
 
 
 public class BlockChangeListener implements Listener {
@@ -66,6 +72,7 @@ public class BlockChangeListener implements Listener {
     public static long F_MOVABLE = BlockFlags.F_GROUND | BlockFlags.F_SOLID;
 
     private final BlockChangeTracker tracker;
+    private final ThreadSafeScheduler scheduler;
     private final boolean retractHasBlocks;
     private boolean enabled = true;
 
@@ -159,6 +166,7 @@ public class BlockChangeListener implements Listener {
 
     public BlockChangeListener(final BlockChangeTracker tracker) {
         this.tracker = tracker;
+        this.scheduler = new ThreadSafeScheduler(tracker);
         if (ReflectionUtil.getMethodNoArgs(BlockPistonRetractEvent.class, "getBlocks") == null) {
             retractHasBlocks = false;
             NCPAPIProvider.getNoCheatPlusAPI().getLogManager().info(Streams.STATUS, "Assume legacy piston behavior.");
@@ -241,23 +249,37 @@ public class BlockChangeListener implements Listener {
     }
 
     private void onPistonExtend(final BlockPistonExtendEvent event) {
-        // Skip block tracking on parallel ticking servers (Leaf/Folia) to prevent deadlock
-        // These servers use threads named "Leaf World Ticking Thread" or similar
-        final String threadName = Thread.currentThread().getName();
-        if (threadName.contains("World Ticking Thread") || threadName.contains("Region Scheduler")) {
+        if (ThreadSafeScheduler.isParallelTickingThread()) {
+            // Parallel ticking server - defer execution
+            DeferredBlockEvent eventData = new PistonExtendEventData(
+                event.getBlock(),
+                event.getDirection(),
+                event.getBlocks()
+            );
+            scheduler.scheduleDeferredEvent(eventData);
             return;
         }
+        
+        // Traditional server - execute immediately
         final BlockFace direction = event.getDirection();
         tracker.addPistonBlocks(event.getBlock().getRelative(direction), direction, event.getBlocks());
     }
 
     private void onPistonRetract(final BlockPistonRetractEvent event) {
-        // Skip block tracking on parallel ticking servers (Leaf/Folia) to prevent deadlock
-        // These servers use threads named "Leaf World Ticking Thread" or similar
-        final String threadName = Thread.currentThread().getName();
-        if (threadName.contains("World Ticking Thread") || threadName.contains("Region Scheduler")) {
+        if (ThreadSafeScheduler.isParallelTickingThread()) {
+            // Parallel ticking server - defer execution
+            final List<Block> blocks = retractHasBlocks ? event.getBlocks() : null;
+            DeferredBlockEvent eventData = new PistonRetractEventData(
+                event.getBlock(),
+                event.getDirection(),
+                blocks,
+                retractHasBlocks
+            );
+            scheduler.scheduleDeferredEvent(eventData);
             return;
         }
+        
+        // Traditional server - execute immediately
         final List<Block> blocks;
         if (retractHasBlocks) {
             blocks = event.getBlocks();
@@ -287,11 +309,6 @@ public class BlockChangeListener implements Listener {
     }
 
     private void onBlockRedstone(final BlockRedstoneEvent event) {
-        // Skip block tracking on parallel ticking servers (Leaf/Folia) to prevent deadlock
-        final String threadName = Thread.currentThread().getName();
-        if (threadName.contains("World Ticking Thread") || threadName.contains("Region Scheduler")) {
-            return;
-        }
         final int oldCurrent = event.getOldCurrent();
         final int newCurrent = event.getNewCurrent();
         if (oldCurrent == newCurrent || oldCurrent > 0 && newCurrent > 0) {
@@ -304,6 +321,15 @@ public class BlockChangeListener implements Listener {
             || (BlockFlags.getBlockFlags(block.getType()) & BlockFlags.F_VARIABLE_REDSTONE) == 0) {
             return;
         }
+        
+        if (ThreadSafeScheduler.isParallelTickingThread()) {
+            // Parallel ticking server - defer execution
+            DeferredBlockEvent eventData = new RedstoneEventData(block);
+            scheduler.scheduleDeferredEvent(eventData);
+            return;
+        }
+        
+        // Traditional server - execute immediately
         addRedstoneBlock(block);
     }
 
@@ -312,15 +338,20 @@ public class BlockChangeListener implements Listener {
     }
 
     private void onEntityChangeBlock(final EntityChangeBlockEvent event) {
-        // Skip block tracking on parallel ticking servers (Leaf/Folia) to prevent deadlock
-        final String threadName = Thread.currentThread().getName();
-        if (threadName.contains("World Ticking Thread") || threadName.contains("Region Scheduler")) {
+        final Block block = event.getBlock();
+        if (block == null) {
             return;
         }
-        final Block block = event.getBlock();
-        if (block != null) {
-            tracker.addBlocks(block); // E.g. falling blocks like sand.
+        
+        if (ThreadSafeScheduler.isParallelTickingThread()) {
+            // Parallel ticking server - defer execution
+            DeferredBlockEvent eventData = new EntityChangeBlockEventData(block);
+            scheduler.scheduleDeferredEvent(eventData);
+            return;
         }
+        
+        // Traditional server - execute immediately
+        tracker.addBlocks(block); // E.g. falling blocks like sand.
     }
 
     private void onPlayerInteract(final PlayerInteractEvent event) {
@@ -382,16 +413,21 @@ public class BlockChangeListener implements Listener {
     }
 
     private void onBlockForm(final BlockFormEvent event) {
-        // Skip block tracking on parallel ticking servers (Leaf/Folia) to prevent deadlock
-        final String threadName = Thread.currentThread().getName();
-        if (threadName.contains("World Ticking Thread") || threadName.contains("Region Scheduler")) {
+        final Block block = event.getBlock();
+        if (block == null) {
             return;
         }
-        final Block block = event.getBlock();
-        if (block != null) {
-            // TODO: Filter by player activity.
-            tracker.addBlocks(block);
+        
+        if (ThreadSafeScheduler.isParallelTickingThread()) {
+            // Parallel ticking server - defer execution
+            DeferredBlockEvent eventData = new BlockFormEventData(block);
+            scheduler.scheduleDeferredEvent(eventData);
+            return;
         }
+        
+        // Traditional server - execute immediately
+        // TODO: Filter by player activity.
+        tracker.addBlocks(block);
     }
 
     /**
