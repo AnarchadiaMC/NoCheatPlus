@@ -19,6 +19,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
@@ -241,11 +242,19 @@ public class BlockChangeListener implements Listener {
     }
 
     private void onPistonExtend(final BlockPistonExtendEvent event) {
+        // Skip block tracking on parallel ticking servers to prevent deadlock
+        if (!Bukkit.isPrimaryThread()) {
+            return;
+        }
         final BlockFace direction = event.getDirection();
         tracker.addPistonBlocks(event.getBlock().getRelative(direction), direction, event.getBlocks());
     }
 
     private void onPistonRetract(final BlockPistonRetractEvent event) {
+        // Skip block tracking on parallel ticking servers to prevent deadlock
+        if (!Bukkit.isPrimaryThread()) {
+            return;
+        }
         final List<Block> blocks;
         if (retractHasBlocks) {
             blocks = event.getBlocks();
