@@ -19,7 +19,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
@@ -242,8 +241,10 @@ public class BlockChangeListener implements Listener {
     }
 
     private void onPistonExtend(final BlockPistonExtendEvent event) {
-        // Skip block tracking on parallel ticking servers to prevent deadlock
-        if (!Bukkit.isPrimaryThread()) {
+        // Skip block tracking on parallel ticking servers (Leaf/Folia) to prevent deadlock
+        // These servers use threads named "Leaf World Ticking Thread" or similar
+        final String threadName = Thread.currentThread().getName();
+        if (threadName.contains("World Ticking Thread") || threadName.contains("Region Scheduler")) {
             return;
         }
         final BlockFace direction = event.getDirection();
@@ -251,8 +252,10 @@ public class BlockChangeListener implements Listener {
     }
 
     private void onPistonRetract(final BlockPistonRetractEvent event) {
-        // Skip block tracking on parallel ticking servers to prevent deadlock
-        if (!Bukkit.isPrimaryThread()) {
+        // Skip block tracking on parallel ticking servers (Leaf/Folia) to prevent deadlock
+        // These servers use threads named "Leaf World Ticking Thread" or similar
+        final String threadName = Thread.currentThread().getName();
+        if (threadName.contains("World Ticking Thread") || threadName.contains("Region Scheduler")) {
             return;
         }
         final List<Block> blocks;
@@ -284,6 +287,11 @@ public class BlockChangeListener implements Listener {
     }
 
     private void onBlockRedstone(final BlockRedstoneEvent event) {
+        // Skip block tracking on parallel ticking servers (Leaf/Folia) to prevent deadlock
+        final String threadName = Thread.currentThread().getName();
+        if (threadName.contains("World Ticking Thread") || threadName.contains("Region Scheduler")) {
+            return;
+        }
         final int oldCurrent = event.getOldCurrent();
         final int newCurrent = event.getNewCurrent();
         if (oldCurrent == newCurrent || oldCurrent > 0 && newCurrent > 0) {
@@ -304,6 +312,11 @@ public class BlockChangeListener implements Listener {
     }
 
     private void onEntityChangeBlock(final EntityChangeBlockEvent event) {
+        // Skip block tracking on parallel ticking servers (Leaf/Folia) to prevent deadlock
+        final String threadName = Thread.currentThread().getName();
+        if (threadName.contains("World Ticking Thread") || threadName.contains("Region Scheduler")) {
+            return;
+        }
         final Block block = event.getBlock();
         if (block != null) {
             tracker.addBlocks(block); // E.g. falling blocks like sand.
@@ -369,6 +382,11 @@ public class BlockChangeListener implements Listener {
     }
 
     private void onBlockForm(final BlockFormEvent event) {
+        // Skip block tracking on parallel ticking servers (Leaf/Folia) to prevent deadlock
+        final String threadName = Thread.currentThread().getName();
+        if (threadName.contains("World Ticking Thread") || threadName.contains("Region Scheduler")) {
+            return;
+        }
         final Block block = event.getBlock();
         if (block != null) {
             // TODO: Filter by player activity.
