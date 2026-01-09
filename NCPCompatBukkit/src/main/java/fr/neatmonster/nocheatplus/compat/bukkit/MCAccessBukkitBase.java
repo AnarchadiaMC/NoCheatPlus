@@ -26,6 +26,8 @@ import org.bukkit.entity.ComplexLivingEntity;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.Boat;
+import org.bukkit.entity.Fireball;
 import org.bukkit.entity.Minecart;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Slime;
@@ -224,13 +226,9 @@ public class MCAccessBukkitBase implements MCAccess {
                 return 0.95f;
             //case PRIMED_TNT: // this.a(0.98F, 0.98F);
             //    return 0.98f;
-            //case FIREBALL: // (EntityFireball) this.a(1.0F, 1.0F);
-            //    return 1.0f;
             case IRON_GOLEM: // this.a(1.4F, 2.9F);
             case SPIDER: // this.a(1.4F, 0.9F);
                 return 1.4f;
-            //case BOAT: // this.a(1.5F, 0.6F);
-            //    return 1.5f;
             //case ENDER_CRYSTAL: // this.a(2.0F, 2.0F);
             //    return 2.0f;
             case GIANT: // this.height *= 6.0F; this.a(this.width * 6.0F, this.length * 6.0F);
@@ -247,9 +245,15 @@ public class MCAccessBukkitBase implements MCAccess {
             default:
                 break;
         }
-        // Check by instance for minecarts (too many).
+        // Check by instance for entity types with many variants or renamed in newer APIs.
         if (entity instanceof Minecart) {
             return 0.98f; // this.a(0.98F, 0.7F);
+        }
+        if (entity instanceof Fireball) {
+            return 1.0f; // this.a(1.0F, 1.0F);
+        }
+        if (entity instanceof Boat) {
+            return 1.375f; // Modern boats are 1.375 wide
         }
         // Latest Bukkit API.
         try {
