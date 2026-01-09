@@ -27,6 +27,19 @@ import fr.neatmonster.nocheatplus.utilities.ReflectionUtil;
 
 public class NSBukkitAttributeAccess implements IAttributeAccess {
 
+    private static final Attribute ATTRIBUTE_MOVEMENT_SPEED;
+    static {
+        Attribute attr = null;
+        try {
+            attr = Attribute.valueOf("MOVEMENT_SPEED");
+        } catch (IllegalArgumentException e) {
+            try {
+                attr = Attribute.valueOf("GENERIC_MOVEMENT_SPEED");
+            } catch (IllegalArgumentException e2) {}
+        }
+        ATTRIBUTE_MOVEMENT_SPEED = attr;
+    }
+
     public NSBukkitAttributeAccess() {
         if (ReflectionUtil.getClass("org.bukkit.attribute.AttributeInstance") == null) {
             throw new RuntimeException("Service not available.");
@@ -34,16 +47,7 @@ public class NSBukkitAttributeAccess implements IAttributeAccess {
     }
 
     private int operationToInt(final Operation operation) {
-        switch (operation) {
-            case ADD_NUMBER:
-                return 0;
-            case ADD_SCALAR:
-                return 1;
-            case MULTIPLY_SCALAR_1:
-                return 2;
-            default:
-                throw new RuntimeException("Unknown operation: " + operation);
-        }
+        return operation.ordinal();
     }
 
     /**
@@ -69,7 +73,7 @@ public class NSBukkitAttributeAccess implements IAttributeAccess {
 
     @Override
     public double getSpeedAttributeMultiplier(final Player player) {
-        final AttributeInstance attrInst = player.getAttribute(Attribute.GENERIC_MOVEMENT_SPEED);
+        final AttributeInstance attrInst = player.getAttribute(ATTRIBUTE_MOVEMENT_SPEED);
         final double val = attrInst.getValue() / attrInst.getBaseValue();
         final AttributeModifier mod = getModifier(attrInst, AttribUtil.NSID_SPRINT_BOOST);
         return mod == null ? val : (val / getMultiplier(mod));
@@ -77,7 +81,7 @@ public class NSBukkitAttributeAccess implements IAttributeAccess {
 
     @Override
     public double getSprintAttributeMultiplier(final Player player) {
-        final AttributeInstance attrInst = player.getAttribute(Attribute.GENERIC_MOVEMENT_SPEED);
+        final AttributeInstance attrInst = player.getAttribute(ATTRIBUTE_MOVEMENT_SPEED);
         final AttributeModifier mod = getModifier(attrInst, AttribUtil.NSID_SPRINT_BOOST);
         return mod == null ? 1.0 : getMultiplier(mod);
     }

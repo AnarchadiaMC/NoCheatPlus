@@ -224,13 +224,13 @@ public class MCAccessBukkitBase implements MCAccess {
                 return 0.95f;
             //case PRIMED_TNT: // this.a(0.98F, 0.98F);
             //    return 0.98f;
-            case FIREBALL: // (EntityFireball) this.a(1.0F, 1.0F);
-                return 1.0f;
+            //case FIREBALL: // (EntityFireball) this.a(1.0F, 1.0F);
+            //    return 1.0f;
             case IRON_GOLEM: // this.a(1.4F, 2.9F);
             case SPIDER: // this.a(1.4F, 0.9F);
                 return 1.4f;
-            case BOAT: // this.a(1.5F, 0.6F);
-                return 1.5f;
+            //case BOAT: // this.a(1.5F, 0.6F);
+            //    return 1.5f;
             //case ENDER_CRYSTAL: // this.a(2.0F, 2.0F);
             //    return 2.0f;
             case GIANT: // this.height *= 6.0F; this.a(this.width * 6.0F, this.length * 6.0F);

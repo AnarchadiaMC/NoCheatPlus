@@ -36,7 +36,8 @@ public class BukkitChorusPlant implements BukkitShapeModel {
             return new double[] {bd.getMinX()-x, 0.1875, bd.getMinZ()-z, bd.getMaxX()-x, bd.getMaxY()-y, bd.getMaxZ()-z};
         }
         final BlockData blockData = block.getBlockData();
-        double[] res = new double[] {0.187, 0.188, 0.187, 1.0 - 0.187, 0.8125, 1.0 - 0.187};
+        // Fallback: Central stem is 10/16 wide (0.1875 to 0.8125), minY 0.1875, maxY 0.8125
+        double[] res = new double[] {0.1875, 0.1875, 0.1875, 0.8125, 0.8125, 0.8125};
         if (blockData instanceof MultipleFacing) {
         	final MultipleFacing chorusplant = (MultipleFacing) blockData;
         	for (final BlockFace face : chorusplant.getFaces()) {

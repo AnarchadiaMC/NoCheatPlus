@@ -2864,10 +2864,16 @@ public class BlockProperties {
                 && getGroundMinHeight(access, bx, by, bz, node, flags) <= Math.min(fy, fy + dY * dT)) {
             return true;
         } 
-        else if (id.toString().equals("CHORUS_PLANT") && !collidesFence(fx, fz, dX, dZ, dT, 0.3)) {
+        // Chorus plant: central stem is 10/16 wide (0.1875 to 0.8125), so margin from center is 0.3125
+        else if (id.toString().equals("CHORUS_PLANT") && !collidesFence(fx, fz, dX, dZ, dT, 0.3125)) {
              return true;
         }
-        //else if (id.toString().equals("BAMBOO")) return true;
+        // Bamboo: 3/16 wide stem (0.09375 radius) with random XZ offset up to 0.25 blocks
+        // The offset makes precise collision unreliable, so allow passage if clearly outside max possible stem area
+        else if (id.toString().equals("BAMBOO") && !collidesFence(fx, fz, dX, dZ, dT, 0.34375)) {
+            // 0.34375 = max offset (0.25) + stem radius (0.09375)
+            return true;
+        }
         // Nothing found.
         return false;
     }
