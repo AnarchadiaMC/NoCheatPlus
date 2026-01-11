@@ -31,86 +31,73 @@ public class BukkitHopper implements BukkitShapeModel {
         if (blockData instanceof Directional) {
             Directional b = (Directional) blockData;
             BlockFace face = b.getFacing();
+            // Minecraft 1.21+ hopper collision shape (hollow bowl, not solid, walkable underneath):
+            // - Top rim: 4 walls (2 pixels thick), Y=10-16 (0.625-1.0) - hollow center
+            // - Middle funnel: 4-12 on X/Z (0.25-0.75), Y=4-10 (0.25-0.625)
+            // - Spout: 6-10 (0.375-0.625) wide, extends in facing direction
+            //   - Side facing (N/S/E/W): spout at Y=4-8 (0.25-0.5), bottom Y=0-4 is OPEN
+            //   - Down facing: spout at Y=0-4 (0.0-0.25)
+            // Players can walk UNDER side-facing hoppers!
             switch (face) {
             case NORTH:
                 return new double[] {
-                        // Standing inside
-                        0.0, 0.625, 0.0, 1.0, 0.6875, 1.0,
-                        // Middle
+                        // Top rim - 4 walls forming hollow bowl (players can walk inside)
+                        0.0, 0.625, 0.0, 1.0, 1.0, 0.125,    // North wall
+                        0.0, 0.625, 0.875, 1.0, 1.0, 1.0,    // South wall
+                        0.0, 0.625, 0.125, 0.125, 1.0, 0.875, // West wall
+                        0.875, 0.625, 0.125, 1.0, 1.0, 0.875, // East wall
+                        // Middle funnel (4-12 on X/Z, Y=4-10)
                         0.25, 0.25, 0.25, 0.75, 0.625, 0.75,
-                        // Bottom
+                        // Spout facing north at Y=4-8 (0.25-0.5) - bottom is OPEN for walking
                         0.375, 0.25, 0.0, 0.625, 0.5, 0.25,
-                        // Top
-                        0.0, 0.6875, 0.0, 1.0, 1.0, 1.0
-                        // 4 sides of hopper (top)
-                        //0.0, 0.6875, 0.0, 1.0, 1.0, 0.125,
-                        //0.0, 0.6875, 0.875, 1.0, 1.0, 1.0,
-                        //0.0, 0.6875, 0.0, 0.125, 1.0, 1.0,
-                        //0.875, 0.6875, 0.0, 1.0, 1.0, 1.0,
                         };
             case SOUTH:
                 return new double[] {
-                        // Standing inside
-                        0.0, 0.625, 0.0, 1.0, 0.6875, 1.0,
-                        // Middle
+                        // Top rim - 4 walls forming hollow bowl
+                        0.0, 0.625, 0.0, 1.0, 1.0, 0.125,    // North wall
+                        0.0, 0.625, 0.875, 1.0, 1.0, 1.0,    // South wall
+                        0.0, 0.625, 0.125, 0.125, 1.0, 0.875, // West wall
+                        0.875, 0.625, 0.125, 1.0, 1.0, 0.875, // East wall
+                        // Middle funnel (4-12 on X/Z, Y=4-10)
                         0.25, 0.25, 0.25, 0.75, 0.625, 0.75,
-                        // Bottom
+                        // Spout facing south at Y=4-8 (0.25-0.5) - bottom is OPEN for walking
                         0.375, 0.25, 0.75, 0.625, 0.5, 1.0,
-                        // Top
-                        0.0, 0.6875, 0.0, 1.0, 1.0, 1.0
-                        // 4 sides of hopper (top)
-                        //0.0, 0.6875, 0.0, 1.0, 1.0, 0.125,
-                        //0.0, 0.6875, 0.875, 1.0, 1.0, 1.0,
-                        //0.0, 0.6875, 0.0, 0.125, 1.0, 1.0,
-                        //0.875, 0.6875, 0.0, 1.0, 1.0, 1.0,
                         };
             case WEST:
                 return new double[] {
-                        // Standing inside
-                        0.0, 0.625, 0.0, 1.0, 0.6875, 1.0,
-                        // Middle
+                        // Top rim - 4 walls forming hollow bowl
+                        0.0, 0.625, 0.0, 1.0, 1.0, 0.125,    // North wall
+                        0.0, 0.625, 0.875, 1.0, 1.0, 1.0,    // South wall
+                        0.0, 0.625, 0.125, 0.125, 1.0, 0.875, // West wall
+                        0.875, 0.625, 0.125, 1.0, 1.0, 0.875, // East wall
+                        // Middle funnel (4-12 on X/Z, Y=4-10)
                         0.25, 0.25, 0.25, 0.75, 0.625, 0.75,
-                        // Bottom
+                        // Spout facing west at Y=4-8 (0.25-0.5) - bottom is OPEN for walking
                         0.0, 0.25, 0.375, 0.25, 0.5, 0.625,
-                        // Top
-                        0.0, 0.6875, 0.0, 1.0, 1.0, 1.0
-                        // 4 sides of hopper (top)
-                        //0.0, 0.6875, 0.0, 1.0, 1.0, 0.125,
-                        //0.0, 0.6875, 0.875, 1.0, 1.0, 1.0,
-                        //0.0, 0.6875, 0.0, 0.125, 1.0, 1.0,
-                        //0.875, 0.6875, 0.0, 1.0, 1.0, 1.0,
                         };
             case EAST:
                 return new double[] {
-                        // Standing inside
-                        0.0, 0.625, 0.0, 1.0, 0.6875, 1.0,
-                        // Middle
+                        // Top rim - 4 walls forming hollow bowl
+                        0.0, 0.625, 0.0, 1.0, 1.0, 0.125,    // North wall
+                        0.0, 0.625, 0.875, 1.0, 1.0, 1.0,    // South wall
+                        0.0, 0.625, 0.125, 0.125, 1.0, 0.875, // West wall
+                        0.875, 0.625, 0.125, 1.0, 1.0, 0.875, // East wall
+                        // Middle funnel (4-12 on X/Z, Y=4-10)
                         0.25, 0.25, 0.25, 0.75, 0.625, 0.75,
-                        // Bottom
+                        // Spout facing east at Y=4-8 (0.25-0.5) - bottom is OPEN for walking
                         0.75, 0.25, 0.375, 1.0, 0.5, 0.625,
-                        // Top
-                        0.0, 0.6875, 0.0, 1.0, 1.0, 1.0
-                        // 4 sides of hopper (top)
-                        //0.0, 0.6875, 0.0, 1.0, 1.0, 0.125,
-                        //0.0, 0.6875, 0.875, 1.0, 1.0, 1.0,
-                        //0.0, 0.6875, 0.0, 0.125, 1.0, 1.0,
-                        //0.875, 0.6875, 0.0, 1.0, 1.0, 1.0,
                         };
             case DOWN:
                 return new double[] {
-                        // Standing inside
-                        0.0, 0.625, 0.0, 1.0, 0.6875, 1.0,
-                        // Middle
+                        // Top rim - 4 walls forming hollow bowl
+                        0.0, 0.625, 0.0, 1.0, 1.0, 0.125,    // North wall
+                        0.0, 0.625, 0.875, 1.0, 1.0, 1.0,    // South wall
+                        0.0, 0.625, 0.125, 0.125, 1.0, 0.875, // West wall
+                        0.875, 0.625, 0.125, 1.0, 1.0, 0.875, // East wall
+                        // Middle funnel (4-12 on X/Z, Y=4-10)
                         0.25, 0.25, 0.25, 0.75, 0.625, 0.75,
-                        // Bottom
+                        // Spout facing down at Y=0-4 (0.0-0.25) - this IS the bottom
                         0.375, 0.0, 0.375, 0.625, 0.25, 0.625,
-                        // Top
-                        0.0, 0.6875, 0.0, 1.0, 1.0, 1.0
-                        // 4 sides of hopper (top)
-                        //0.0, 0.6875, 0.0, 1.0, 1.0, 0.125,
-                        //0.0, 0.6875, 0.875, 1.0, 1.0, 1.0,
-                        //0.0, 0.6875, 0.0, 0.125, 1.0, 1.0,
-                        //0.875, 0.6875, 0.0, 1.0, 1.0, 1.0,
                         };
             default:
                 break;
